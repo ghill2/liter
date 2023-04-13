@@ -5,6 +5,8 @@ pub use bind::{
 };
 pub mod column;
 pub mod meta;
+pub mod schema;
+pub use schema::Schema;
 pub mod table;
 pub use table::{
 	Entry,
