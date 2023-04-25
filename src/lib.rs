@@ -20,6 +20,11 @@ pub use value::{
 	Id
 };
 
+pub use liter_derive::{
+	database,
+	Table
+};
+
 use std::marker::PhantomData;
 use std::path::Path;
 
@@ -139,6 +144,4 @@ impl<S: Schema> Database<S> {
 		stmt.raw_execute()
 	}
 
-
 }
-
