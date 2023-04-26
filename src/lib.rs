@@ -4,6 +4,8 @@ pub use bind::{
 	Binder
 };
 pub mod column;
+pub mod fetch;
+pub use fetch::Fetch;
 pub mod meta;
 pub mod schema;
 pub use schema::Schema;
