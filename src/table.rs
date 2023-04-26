@@ -3,7 +3,8 @@ use rusqlite::Row;
 
 use crate::{
 	Bind,
-	Binder
+	Binder,
+	Ref
 };
 use crate::column::{
 	//Column,
@@ -91,8 +92,15 @@ pub trait HasKey {
 	const GET_BY_KEY: &'static str;
 	type Key: Bind + for<'t> TupleRef<'t>;
 
+	fn clone_key(&self) -> Self::Key where Self::Key: Clone;
 	fn get_key(&self) -> TupleAsRef<Self::Key>;
 	fn get_key_mut(&mut self) -> TupleAsMut<Self::Key>;
+
+	fn make_ref(&self) -> Ref<Self>
+		where Self::Key: Clone, Self: Sized
+	{
+		Ref(self.clone_key())
+	}
 }
 
 pub trait ValueList {

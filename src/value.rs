@@ -1,5 +1,3 @@
-use std::marker::PhantomData;
-
 use rusqlite::Result as SqlResult;
 use rusqlite::types::{
 	FromSql,
@@ -9,6 +7,10 @@ use rusqlite::types::{
 	ToSqlOutput
 };
 
+use crate::table::{
+	HasKey,
+	Table
+};
 
 pub trait Value: FromSql + ToSql {
 	const AFFINITY: Affinity;
@@ -55,8 +57,13 @@ pub enum FkConflictAction {
 pub struct Id(Option<u64>);
 
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub struct Ref<T>(u64, PhantomData<T>);
+pub struct Ref<T: HasKey>(pub T::Key);
 
+impl<T: HasKey<Key = K>, K: Clone> Ref<T> {
+	pub fn make_ref(from: &T) -> Self {
+		Self(from.clone_key())
+	}
+}
 
 /*
  *	DEFINITION ASSEMBLY
@@ -183,23 +190,23 @@ impl Value for Id {
 
 /* REFERENCE */
 
-impl<T> Ref<T> {
-	pub const NULL: Self = Self(0, PhantomData);
+impl<T: HasKey<Key = Id>> Ref<T> {
+	pub const NULL: Self = Self(Id::NULL);
 }
 
-impl<T> FromSql for Ref<T> {
+impl<T: HasKey<Key = K>, K: FromSql> FromSql for Ref<T> {
 	fn column_result(value: ValueRef<'_>) -> FromSqlResult<Self> {
-		u64::column_result(value).map(|id| Self(id, PhantomData))
+		K::column_result(value).map(|key| Self(key))
 	}
 }
-impl<T> ToSql for Ref<T> {
+impl<T: HasKey<Key = K>, K: ToSql + 'static> ToSql for Ref<T> {
 	fn to_sql(&self) -> SqlResult<ToSqlOutput<'_>> {
 		self.0.to_sql()
 	}
 }
-impl<T> crate::bind::ToSql2 for Ref<T> {}
+impl<T: HasKey> crate::bind::ToSql2 for Ref<T> {}
 
-impl<T: crate::Table> Value for Ref<T> {
+impl<T: Table + HasKey<Key = K>, K: FromSql + ToSql + 'static> Value for Ref<T> {
 	const AFFINITY: Affinity = Affinity::Integer;
 	const FOREIGN_KEY: Option<ForeignKey> = Some(ForeignKey {
 		table_name: T::NAME,
