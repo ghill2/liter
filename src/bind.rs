@@ -55,6 +55,10 @@ impl ToSql2 for usize {}
 impl ToSql2 for f32 {}
 impl ToSql2 for f64 {}
 
+impl<T: ToSql + ?Sized> ToSql2 for std::rc::Rc<T> {}
+impl<T: ToSql + ?Sized> ToSql2 for std::sync::Arc<T> {}
+impl<T: ToSql + ?Sized> ToSql2 for Box<T> {}
+
 impl ToSql2 for String {}
 impl ToSql2 for str {}
 
