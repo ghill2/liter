@@ -63,18 +63,15 @@ pub struct Ref<T: HasKey + ?Sized>(pub T::Key);
 /* DATABASE */
 
 impl<S: Schema> Database<S> {
-	fn from_connection(connection: Connection) -> Self {
-		Self { connection, schema: PhantomData }
+	fn from_connection(connection: Connection) -> SqlResult<Self> {
+		connection.pragma_update(None, "foreign_keys", "on")?;
+		Ok(Self { connection, schema: PhantomData })
 	}
 	pub fn open(path: &Path) -> SqlResult<Self> {
-		Connection::open(path).map(Self::from_connection)
+		Connection::open(path).and_then(Self::from_connection)
 	}
-	pub fn open_in_memory() -> SqlResult<Self> {
-		Connection::open_in_memory().map(Self::from_connection)
-	}
-
 	pub fn create_in_memory() -> SqlResult<Self> {
-		let new = Self::open_in_memory()?;
+		let new = Connection::open_in_memory().and_then(Self::from_connection)?;
 		new.connection.execute_batch(&S::define())?;
 		Ok(new)
 	}
