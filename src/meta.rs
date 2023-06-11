@@ -3,7 +3,7 @@
 //! None of the traits in this module should be implemented manually, and many are sealed.
 //! They exist to validate [`Schema`](crate::Schema)s at compile-time: making sure that types can only hold (foreign-key) [`Ref`](crate::Ref)erences to types that are in the same [`Schema`](crate::Schema).
 //!
-//! Here's an example of the type of this type of error being spotted.
+//! Here's an example of this type of error being spotted.
 //!```compile_fail
 //! use liter::{database, Ref, Table};
 //!
