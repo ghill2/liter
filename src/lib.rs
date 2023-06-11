@@ -105,10 +105,8 @@ impl<S: Schema> Database<S> {
 	pub fn get<T>(&self, key: <T as HasKey>::Key) -> SqlResult<Option<T>>
 		where T: Entry + HasKey
 	{
-		let stmt = self.connection.prepare(T::GET_BY_KEY)?;
-		let mut binder = Binder::make(stmt);
-		key.bind(&mut binder)?;
-		let mut stmt = binder.revert();
+		let mut stmt = self.connection.prepare(T::GET_BY_KEY)?;
+		Binder::make(&mut stmt).bind(&key)?;
 		let mut rows = stmt.raw_query();
 		rows.next()?
 			.map(T::from_row)
@@ -125,10 +123,8 @@ impl<S: Schema> Database<S> {
 				entry.get_key()
 			).into()));
 		}
-		let stmt = self.connection.prepare(T::INSERT)?;
-		let mut binder = Binder::make(stmt);
-		entry.bind_to(&mut binder)?;
-		let mut stmt = binder.revert();
+		let mut stmt = self.connection.prepare(T::INSERT)?;
+		Binder::make(&mut stmt).bind(&*entry)?;
 		let changes = stmt.raw_execute()?;
 		if changes != 1 {
 			return Err(Error::StatementChangedRows(changes));
@@ -139,10 +135,8 @@ impl<S: Schema> Database<S> {
 	}
 
 	pub fn insert<T: Entry>(&self, entry: &T) -> SqlResult<usize> {
-		let stmt = self.connection.prepare(T::INSERT)?;
-		let mut binder = Binder::make(stmt);
-		entry.bind_to(&mut binder)?;
-		let mut stmt = binder.revert();
+		let mut stmt = self.connection.prepare(T::INSERT)?;
+		Binder::make(&mut stmt).bind(entry)?;
 		stmt.raw_execute()
 	}
 

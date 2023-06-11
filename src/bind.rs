@@ -5,38 +5,44 @@ use rusqlite::{
 };
 
 pub trait Bind {
-	fn bind(self, binder: &mut Binder<'_>) -> SqlResult<()>;
+	fn bind(&self, binder: &mut Binder<'_, '_>) -> SqlResult<()>;
 }
 pub trait ToSql2 {}
 
-pub struct Binder<'conn> {
+pub struct Binder<'stmt, 'conn> {
 	index: usize,
-	stmt: Statement<'conn>
+	stmt: &'stmt mut Statement<'conn>
 }
 
-impl<'conn> Binder<'conn> {
-	pub(crate) fn make(stmt: Statement<'conn>) -> Self {
+impl<'stmt, 'conn> Binder<'stmt, 'conn> {
+	pub(crate) fn make(stmt: &'stmt mut Statement<'conn>) -> Self {
 		Self {index: 0, stmt}
 	}
 	#[inline]
-	pub fn bind<T: ToSql>(&mut self, thing: T) -> SqlResult<()> {
+	pub fn bind_parameter<T: ToSql>(&mut self, thing: &T) -> SqlResult<()> {
 		self.index += 1; // bind parameter index is 1-based
 		self.stmt.raw_bind_parameter(self.index, thing)
 	}
-	pub(crate) fn revert(self) -> Statement<'conn> {
-		self.stmt
+	pub fn bind<T: Bind>(&mut self, thing: &T) -> SqlResult<()> {
+		thing.bind(self)
 	}
 }
 
-liter_derive::impl_tuple!{
-	1..=16:
-	impl Bind for ToSql + ToSql2 {
-		fn bind(self, binder: &mut Binder<'_>) -> SqlResult<()> {
-			each!{thing => {binder.bind(thing)?;} }
-			Ok(())
-		}
+impl<T: ToSql + ToSql2> Bind for T {
+	fn bind(&self, binder: &mut Binder<'_, '_>) -> SqlResult<()> {
+		binder.bind_parameter(&self)?;
+		Ok(())
 	}
 }
+
+#[liter_derive::impl_tuple(2..=16)]
+impl Bind for Each!(T) where Every!(T => T: Bind): '_ {
+	fn bind(&self, binder: &mut Binder<'_, '_>) -> SqlResult<()> {
+		each!{ref thing => {binder.bind(thing)?;} };
+		Ok(())
+	}
+}
+
 
 impl ToSql2 for bool {}
 
