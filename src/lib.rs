@@ -4,6 +4,7 @@ pub use bind::{
 	Binder
 };
 pub mod column;
+pub use column::Column;
 pub mod fetch;
 pub use fetch::Fetch;
 pub mod meta;
@@ -17,11 +18,7 @@ pub use table::{
 };
 pub mod util;
 pub mod value;
-pub use value::{
-	Value,
-	Ref,
-	Id
-};
+pub use value::Value;
 
 pub use liter_derive::{
 	database,
@@ -34,13 +31,36 @@ use std::path::Path;
 use rusqlite::{
 	Connection,
 	Error,
-	Result as SqlResult,
+	Result as SqlResult
 };
+use rusqlite::types::{
+	FromSql,
+	ToSql,
+	ValueRef,
+	FromSqlResult,
+	ToSqlOutput
+};
+
+use crate::column::Affinity;
+use crate::value::{
+	ForeignKey,
+	FkConflictAction,
+	ValueDef
+};
+
 
 pub struct Database<S: Schema> {
 	connection: Connection,
 	schema: PhantomData<S>
 }
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct Id(Option<u64>);
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct Ref<T: HasKey + ?Sized>(pub T::Key);
+
+/* DATABASE */
 
 impl<S: Schema> Database<S> {
 	fn from_connection(connection: Connection) -> Self {
@@ -141,4 +161,70 @@ impl<S: Schema> Database<S> {
 		stmt.raw_execute()
 	}
 
+}
+
+/* ID */
+
+impl Id {
+	pub const NULL: Self = Self(None);
+	pub(crate) fn from_u64(id: u64) -> Self {Self(Some(id))}
+}
+
+impl FromSql for Id {
+	fn column_result(value: ValueRef<'_>) -> FromSqlResult<Self> {
+		u64::column_result(value).map(Some).map(Self)
+	}
+}
+impl ToSql for Id {
+	fn to_sql(&self) -> SqlResult<ToSqlOutput<'_>> {
+		self.0.to_sql()
+	}
+}
+impl crate::bind::ToSql2 for Id {}
+impl crate::fetch::FromSql2 for Id {}
+
+impl Column for Id {
+	const AFFINITY: Affinity = Affinity::Integer;
+}
+
+/* REFERENCE */
+
+impl<T: HasKey<Key = Id>> Ref<T> {
+	pub const NULL: Self = Self(Id::NULL);
+}
+impl<T: HasKey<Key = K>, K: Clone> Ref<T> {
+	pub fn make_ref(from: &T) -> Self {
+		Self(from.clone_key())
+	}
+}
+
+impl<T: Table + HasKey> Value for Ref<T> {
+	const DEFINITION: ValueDef = ValueDef {
+		unique: false,
+		inner: T::KEY_VALUE,
+		reference: Some(ForeignKey {
+			table_name: T::NAME,
+			deferrable: true,
+			on_delete: FkConflictAction::Restrict,
+			on_update: FkConflictAction::Restrict
+		}),
+		checks: &[],
+	};
+	type References = T;
+}
+
+impl<T: Table + HasKey> Fetch for Ref<T> {
+	fn fetch(fetcher: &mut fetch::Fetcher<'_>) -> SqlResult<Self> {
+		T::Key::fetch(fetcher).map(Self)
+	}
+}
+impl<T: Table + HasKey> Bind for Ref<T> {
+	fn bind(&self, binder: &mut Binder<'_, '_>) -> SqlResult<()> {
+		self.0.bind(binder)
+	}
+}
+impl<T: Table + HasKey> Bind for &Ref<T> {
+	fn bind(&self, binder: &mut Binder<'_, '_>) -> SqlResult<()> {
+		self.0.bind(binder)
+	}
 }

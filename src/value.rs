@@ -1,36 +1,35 @@
-use rusqlite::Result as SqlResult;
-use rusqlite::types::{
-	FromSql,
-	ToSql,
-	ValueRef,
-	FromSqlResult,
-	ToSqlOutput
+use crate::{
+	Column,
+	Bind,
+	Fetch
 };
-
+use crate::column::ColumnDef;
 use crate::table::{
-	HasKey,
-	Table
+	Table,
+	HasKey
 };
 
-pub trait Value: FromSql + ToSql {
-	const AFFINITY: Affinity;
-	const NULLABLE: bool = false;
-
-	const UNIQUE: bool = false;
-	const FOREIGN_KEY: Option<ForeignKey> = None;
-
-	const CHECKS: &'static [Check] = &[];
-
+pub trait Value: Bind + Fetch {
+	const DEFINITION: ValueDef;
+	const COLUMN_COUNT: usize = Self::DEFINITION.inner.count_columns();
 	type References;
 }
 
-#[derive(Clone, Copy, Debug)]
-pub enum Affinity {
-	Integer,
-	Real,
-	Text,
-	Blob,
+pub struct ValueDef {
+	pub unique: bool,
+	//pub nullable: bool,
+	pub inner: InnerValueDef,
+	pub reference: Option<ForeignKey>,
+	pub checks: &'static [Check]
 }
+
+pub enum InnerValueDef {
+	Column (ColumnDef),
+	//Columns (&'static [(&'static str, ColumnDef)]),
+	Value (&'static InnerValueDef),
+	Values (&'static [(&'static str, InnerValueDef)]),
+}
+
 
 #[derive(Clone, Copy, Debug)]
 pub enum Check {
@@ -46,6 +45,17 @@ pub struct ForeignKey {
 	pub on_update: FkConflictAction
 }
 
+impl ForeignKey {
+	pub fn define_for<T: Table + HasKey>() -> Self {
+		Self {
+			table_name: T::NAME,
+			deferrable: false,
+			on_delete: FkConflictAction::Restrict,
+			on_update: FkConflictAction::Restrict
+		}
+	}
+}
+
 #[derive(Clone, Copy, Debug)]
 pub enum FkConflictAction {
 	Cascade,
@@ -53,41 +63,9 @@ pub enum FkConflictAction {
 	SetNull
 }
 
-#[derive(Debug, PartialEq, Eq, Clone)]
-pub struct Id(Option<u64>);
-
-#[derive(Debug, PartialEq, Eq, Clone)]
-pub struct Ref<T: HasKey>(pub T::Key);
-
-impl<T: HasKey<Key = K>, K: Clone> Ref<T> {
-	pub fn make_ref(from: &T) -> Self {
-		Self(from.clone_key())
-	}
-}
-
 /*
  *	DEFINITION ASSEMBLY
  */
-
-impl Affinity {
-	pub const fn as_str(self) -> &'static str {
-		match self {
-			Affinity::Integer => "INTEGER NOT NULL",
-			Affinity::Real => "REAL NOT NULL",
-			Affinity::Text => "TEXT NOT NULL",
-			Affinity::Blob => "BLOB NOT NULL",
-		}
-	}
-	pub const fn as_str_nullable(self) -> &'static str {
-		match self {
-			Affinity::Integer => "INTEGER",
-			Affinity::Real => "REAL",
-			Affinity::Text => "TEXT",
-			Affinity::Blob => "BLOB",
-		}
-	}
-
-}
 
 impl ForeignKey {
 	pub(crate) fn write_sql_to(&self, sql: &mut String) {
@@ -114,106 +92,122 @@ impl FkConflictAction {
 	}
 }
 
-/*
- *	VALUES
- */
-
-macro_rules! value {
-	($t:ty, $col:expr) => {
-		impl Value for $t {
-			const AFFINITY: Affinity = $col;
-			type References = ();
-		}
+impl<T: Column> Value for T {
+	type References = ();
+	//type Columns = Self;
+	const DEFINITION: ValueDef = ValueDef {
+		unique: false,
+		inner: InnerValueDef::Column(<Self as Column>::DEFINITION),
+		reference: None,
+		checks: &[],
 	};
 }
 
-/* BLOB */
-value!(Vec<u8>, Affinity::Blob);
-impl<const N: usize> Value for [u8; N] {
-	const AFFINITY: Affinity = Affinity::Blob;
-	type References = ();
-}
+impl ValueDef {
+	pub fn define(
+		&self,
+		name: &str,
+		into: &mut String,
+		constraints: &mut String)
+	{
+		// define columns
+		self.inner.define(name, into);
 
-/* TEXT */
-value!(std::rc::Rc<str>, Affinity::Text);
-value!(std::sync::Arc<str>, Affinity::Text);
-value!(Box<str>, Affinity::Text);
-value!(String, Affinity::Text);
+		if self.unique {
+			// TODO: if inner is single-column: append UNIQUE instead
+			constraints.push_str(",\n\tUNIQUE (");
+			self.inner.write_column_names(name, constraints);
+			constraints.push(')');
+		}
+		if let Some(ref fk_ref) = self.reference {
+			constraints.push_str(",\n\tFOREIGN KEY (");
+			self.inner.write_column_names(name, constraints);
+			constraints.push(')');
+			fk_ref.write_sql_to(constraints)
+		}
+		for Check::Sql(check) in self.checks {
+			// How to do checks for multi-column values?!
+			// (For now): Just SQL, no name help
+			// could do "template strings" or special structs
+			constraints.push_str(",\n\tCHECK (");
+			constraints.push_str(check);
+			constraints.push(')');
+		}
 
-/* REAL */
-value!(f32, Affinity::Real);
-value!(f64, Affinity::Real);
-
-/* INTEGER */
-value!(i8, Affinity::Integer);
-value!(i16, Affinity::Integer);
-value!(i32, Affinity::Integer);
-value!(i64, Affinity::Integer);
-
-value!(u8, Affinity::Integer);
-value!(u16, Affinity::Integer);
-value!(u32, Affinity::Integer);
-value!(u64, Affinity::Integer);
-
-value!(usize, Affinity::Integer);
-
-/* NULLABLE */
-impl<T: Value> Value for Option<T> {
-	const AFFINITY: Affinity = T::AFFINITY;
-	const NULLABLE: bool = true;
-	type References = T::References;
-}
-
-/* ID */
-
-impl Id {
-	pub const NULL: Self = Self(None);
-	pub(crate) fn from_u64(id: u64) -> Self {Self(Some(id))}
-}
-
-impl FromSql for Id {
-	fn column_result(value: ValueRef<'_>) -> FromSqlResult<Self> {
-		u64::column_result(value).map(Some).map(Self)
 	}
 }
-impl ToSql for Id {
-	fn to_sql(&self) -> SqlResult<ToSqlOutput<'_>> {
-		self.0.to_sql()
+
+impl InnerValueDef {
+	pub fn write_column_names(&self, name: &str, into: &mut String) {
+		match self {
+			// base case
+			InnerValueDef::Column(_def) => into.push_str(name),
+			// multi-column Value implementation on a struct
+			// define each with name prepended
+			//InnerValueDef::Columns(_) => todo!(),
+			// Single-key Ref
+			// recurse with name
+			InnerValueDef::Value(def) => def.write_column_names(name, into),
+			// Composite-Key Ref
+			// recurse with name + subname
+			InnerValueDef::Values([(first_name, first_def), rest @ ..]) => {
+				first_def.write_column_names(
+					&format!("{name}_{first_name}"),
+					into
+				);
+				for (sub_name, def) in rest.iter() {
+					into.push_str(", ");
+					def.write_column_names(&format!("{name}_{sub_name}"), into)
+				}
+			},
+			// if this were allowed to be empty, above code for adding ", " would have to be changed
+			InnerValueDef::Values([]) => unreachable!()
+		}
+	}
+	pub fn define(&self, name: &str, into: &mut String) {
+		match self {
+			// base case
+			InnerValueDef::Column(def) => def.write_sql_to(name, into),
+			// multi-column Value implementation on a struct
+			// define each with name prepended
+			//InnerValueDef::Columns(_) => todo!(),
+			// Single-key Ref
+			// recurse with name
+			InnerValueDef::Value(def) => def.define(name, into),
+			// Composite-Key Ref
+			// recurse with name + subname
+			InnerValueDef::Values([(first_name, first_def), rest @ ..]) => {
+				first_def.define(
+					&format!("{name}_{first_name}"),
+					into
+				);
+				for (sub_name, def) in rest.iter() {
+					into.push_str(",\n\t");
+					def.define(&format!("{name}_{sub_name}"), into)
+				}
+			},
+			// if this were allowed to be empty, above code for adding ",\n\t" would have to be changed
+			InnerValueDef::Values([]) => unreachable!()
+		}
+	}
+	const fn count_columns(&self) -> usize {
+		match self {
+			// base case
+			InnerValueDef::Column(_def) => 1,
+			// multi-column Value implementation on a struct
+			// define each with name prepended
+			//InnerValueDef::Columns(_) => todo!(),
+			// Single-key Ref
+			// recurse with name
+			InnerValueDef::Value(def) => def.count_columns(),
+			// Composite-Key Ref
+			// recurse with name + subname
+			InnerValueDef::Values([(_first_name, first_def), rest @ ..]) =>
+				first_def.count_columns() +
+				InnerValueDef::Values(rest).count_columns(),
+			InnerValueDef::Values([]) => 0
+		}
 	}
 }
-impl crate::bind::ToSql2 for Id {}
 
-impl Value for Id {
-	const AFFINITY: Affinity = Affinity::Integer;
-	type References = ();
-}
-
-/* REFERENCE */
-
-impl<T: HasKey<Key = Id>> Ref<T> {
-	pub const NULL: Self = Self(Id::NULL);
-}
-
-impl<T: HasKey<Key = K>, K: FromSql> FromSql for Ref<T> {
-	fn column_result(value: ValueRef<'_>) -> FromSqlResult<Self> {
-		K::column_result(value).map(|key| Self(key))
-	}
-}
-impl<T: HasKey<Key = K>, K: ToSql + 'static> ToSql for Ref<T> {
-	fn to_sql(&self) -> SqlResult<ToSqlOutput<'_>> {
-		self.0.to_sql()
-	}
-}
-impl<T: HasKey> crate::bind::ToSql2 for Ref<T> {}
-
-impl<T: Table + HasKey<Key = K>, K: FromSql + ToSql + 'static> Value for Ref<T> {
-	const AFFINITY: Affinity = Affinity::Integer;
-	const FOREIGN_KEY: Option<ForeignKey> = Some(ForeignKey {
-		table_name: T::NAME,
-		deferrable: true,
-		on_delete: FkConflictAction::Restrict,
-		on_update: FkConflictAction::Restrict
-	});
-	type References = T;
-}
 
