@@ -165,6 +165,14 @@ impl<S: Schema> Database<S> {
 	}
 }
 
+impl<S: Schema> std::ops::Deref for Database<S> {
+	type Target = Connection;
+	fn deref(&self) -> &Self::Target {&self.connection}
+}
+impl<S: Schema> std::ops::DerefMut for Database<S> {
+	fn deref_mut(&mut self) -> &mut Self::Target {&mut self.connection}
+}
+
 /* ID */
 
 impl Id {
