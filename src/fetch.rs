@@ -7,40 +7,44 @@ use rusqlite::{
 pub trait Fetch: Sized {
 	fn fetch(fetcher: &mut Fetcher<'_>) -> SqlResult<Self>;
 
-	fn from_row(row: Row) -> SqlResult<Self> {
+	fn from_row(row: &Row) -> SqlResult<Self> {
 		let mut fetcher = Fetcher::make(row);
 		Self::fetch(&mut fetcher)
 	}
 }
 pub trait FromSql2 {}
 
-pub struct Fetcher<'stmt> {
+pub struct Fetcher<'row> {
 	index: usize,
-	row: Row<'stmt>
+	row: &'row Row<'row>
 }
 
-impl<'stmt> Fetcher<'stmt> {
-	pub(crate) fn make(row: Row<'stmt>) -> Self {
+impl<'row> Fetcher<'row> {
+	pub(crate) fn make(row: &'row Row<'row>) -> Self {
 		Self {index: 0, row}
 	}
 	#[inline]
-	pub fn fetch<T: FromSql>(&mut self) -> SqlResult<T> {
+	pub fn fetch_column<T: FromSql>(&mut self) -> SqlResult<T> {
 		let thing = self.row.get(self.index)?;
 		self.index += 1; // fetch parameter index is 0-based
 		Ok(thing)
 	}
-	pub(crate) fn revert(self) -> Row<'stmt> {
-		self.row
+	pub fn fetch<T: Fetch>(&mut self) -> SqlResult<T> {
+		T::fetch(self)
 	}
 }
 
-liter_derive::impl_tuple!{
-	1..=16:
-	impl Fetch for FromSql + FromSql2 {
-		fn fetch(fetcher: &mut Fetcher<'_>) -> SqlResult<Self> {
-			let fetched = each!{ fetcher.fetch()? };
-			Ok(fetched)
-		}
+impl<T: FromSql + FromSql2> Fetch for T {
+	fn fetch(fetcher: &mut Fetcher<'_>) -> SqlResult<Self> {
+		fetcher.fetch_column()
+	}
+}
+
+#[liter_derive::impl_tuple(2..=16)]
+impl Fetch for Each!(T) where Every!(T => T: Fetch): '_ {
+	fn fetch(fetcher: &mut Fetcher<'_>) -> SqlResult<Self> {
+		let fetched = each!{ fetcher.fetch()? };
+		Ok(fetched)
 	}
 }
 
