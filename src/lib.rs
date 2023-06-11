@@ -131,14 +131,17 @@ impl<S: Schema> Database<S> {
 			.transpose()
 	}
 
-	/// Special method to insert and set id to last_insert_rowid
+	/// Special method to insert and set id to `last_insert_rowid`
 	pub fn create<T>(&self, entry: &mut T) -> SqlResult<()>
-		where T: Entry + HasKey<Key = Id>
+		where T: Entry +
+			HasKey<Key = Id> +
+			for<'l> HasKey<KeyRef<'l> = &'l Id> +
+			for<'l> HasKey<KeyMut<'l> = &'l mut Id>
 	{
-		if entry.get_key() != &Id::NULL {
+		if *entry.get_key() != Id::NULL {
 			return Err(Error::ToSqlConversionFailure(format!(
 				"tried to create entry that already had the ID {:?}",
-				entry.get_key()
+				*entry.get_key()
 			).into()));
 		}
 		let mut stmt = self.connection.prepare(T::INSERT)?;
