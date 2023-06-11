@@ -15,6 +15,7 @@ pub use table::{
 	HasKey,
 	Table
 };
+pub mod util;
 pub mod value;
 pub use value::{
 	Value,
