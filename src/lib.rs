@@ -161,6 +161,11 @@ impl<S: Schema> Database<S> {
 		stmt.raw_execute()
 	}
 
+	pub fn execute<T: Bind>(&self, sql: &str, params: &T) -> SqlResult<usize> {
+		let mut stmt = self.prepare(sql)?;
+		Binder::make(&mut stmt).bind(params)?;
+		stmt.raw_execute()
+	}
 }
 
 /* ID */
