@@ -22,6 +22,10 @@ pub trait Tuple<M: Marker>: private::Sealed<M> {
 	fn take_ref(&self) -> Self::Ref<'_>;
 }
 
+pub trait CloneFromRef<M: Marker>: Tuple<M> {
+	fn clone_from_ref(from: Self::Ref<'_>) -> Self;
+}
+
 mod private {
 	use super::*;
 	pub trait Sealed<M> {}
@@ -47,3 +51,20 @@ impl Tuple<marker::Many> for Each!(T) {
 	}
 }
 
+impl<T: 'static> CloneFromRef<marker::One> for T
+	where T: for<'x> Tuple<marker::One, Ref<'x> = &'x T> + Clone
+{
+	fn clone_from_ref(from: Self::Ref<'_>) -> Self where Self: 'static {
+		from.clone()
+	}
+}
+
+#[impl_tuple(2..=16)]
+impl CloneFromRef<marker::Many> for Each!(T)
+	where Self: for<'x> Tuple<marker::Many, Ref<'x> = Each!(T => &'x T)>,
+		Every!(T => T: 'static + Clone): '_
+{
+	fn clone_from_ref(from: Self::Ref<'_>) -> Self where Self: 'static {
+		each!(@from, thing => thing.clone())
+	}
+}

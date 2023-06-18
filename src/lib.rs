@@ -42,6 +42,7 @@ use rusqlite::types::{
 };
 
 use crate::column::Affinity;
+use crate::meta::tuple::CloneFromRef;
 use crate::table::HasSingleKey;
 use crate::value::{
 	ForeignKey,
@@ -203,9 +204,9 @@ impl Column for Id {
 impl<T: HasKey<Key = Id>> Ref<T> {
 	pub const NULL: Self = Self(Id::NULL);
 }
-impl<T: HasKey<Key = K>, K: Clone> Ref<T> {
+impl<T: HasKey<Key = K>, K: CloneFromRef<T::Marker>> Ref<T> {
 	pub fn make_ref(from: &T) -> Self {
-		Self(from.clone_key())
+		from.make_ref()
 	}
 }
 

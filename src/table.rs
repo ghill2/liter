@@ -7,6 +7,7 @@ use crate::meta::tuple::{
 	Tuple,
 	marker,
 	Marker,
+	CloneFromRef
 };
 use crate::value::{
 	ValueDef,
@@ -46,8 +47,10 @@ pub trait HasKey {
 	fn get_key(&self) -> <Self::Key as Tuple<Self::Marker>>::Ref<'_>;
 	fn get_key_mut(&mut self) -> <Self::Key as Tuple<Self::Marker>>::Mut<'_>;
 
-	fn make_ref(&self) -> Ref<Self> where Self::Key: Clone {
-		Ref(self.clone_key())
+	fn make_ref(&self) -> Ref<Self>
+		where Self::Key: CloneFromRef<Self::Marker>
+	{
+		Ref(Self::Key::clone_from_ref(self.get_key()))
 	}
 }
 
