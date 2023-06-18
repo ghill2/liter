@@ -35,6 +35,8 @@
 
 pub mod filter;
 pub use filter::Filtered;
+pub mod tuple;
+pub use tuple::Tuple;
 pub mod validate;
 pub use validate::{
 	IsValidFor,

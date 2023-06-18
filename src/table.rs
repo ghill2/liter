@@ -3,6 +3,10 @@ use crate::{
 	Fetch,
 	Ref
 };
+use crate::meta::tuple::{
+	Tuple,
+	Marker,
+};
 use crate::value::{
 	ValueDef,
 	InnerValueDef
@@ -35,13 +39,11 @@ pub trait Entry: Sized + Fetch + Bind {
 pub trait HasKey {
 	const GET_BY_KEY: &'static str;
 	const KEY_VALUE: InnerValueDef;
-	type Key: Fetch + Bind;
-	type KeyRef<'l>: Bind where Self: 'l;
-	type KeyMut<'l>: where Self: 'l;
+	type Marker: Marker;
+	type Key: Fetch + Bind + Tuple<Self::Marker>;
 
-	fn clone_key(&self) -> Self::Key where Self::Key: Clone;
-	fn get_key(&self) -> Self::KeyRef<'_>;
-	fn get_key_mut(&mut self) -> Self::KeyMut<'_>;
+	fn get_key(&self) -> <Self::Key as Tuple<Self::Marker>>::Ref<'_>;
+	fn get_key_mut(&mut self) -> <Self::Key as Tuple<Self::Marker>>::Mut<'_>;
 
 	fn make_ref(&self) -> Ref<Self> where Self::Key: Clone {
 		Ref(self.clone_key())
