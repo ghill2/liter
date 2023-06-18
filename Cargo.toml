@@ -9,5 +9,5 @@ documentation = "https://docs.rs/liter"
 
 [dependencies]
 liter_derive = "0.0.1"
-rusqlite = "0.28"
+rusqlite = "0.29"
 const_format = "0.2"
