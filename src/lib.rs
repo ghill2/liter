@@ -42,6 +42,7 @@ use rusqlite::types::{
 };
 
 use crate::column::Affinity;
+use crate::table::HasSingleKey;
 use crate::value::{
 	ForeignKey,
 	FkConflictAction,
@@ -133,10 +134,7 @@ impl<S: Schema> Database<S> {
 
 	/// Special method to insert and set id to `last_insert_rowid`
 	pub fn create<T>(&self, entry: &mut T) -> SqlResult<()>
-		where T: Entry +
-			HasKey<Key = Id> +
-			for<'l> HasKey<KeyRef<'l> = &'l Id> +
-			for<'l> HasKey<KeyMut<'l> = &'l mut Id>
+		where T: Entry + HasSingleKey<Id>
 	{
 		if *entry.get_key() != Id::NULL {
 			return Err(Error::ToSqlConversionFailure(format!(

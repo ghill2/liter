@@ -5,6 +5,7 @@ use crate::{
 };
 use crate::meta::tuple::{
 	Tuple,
+	marker,
 	Marker,
 };
 use crate::value::{
@@ -49,6 +50,12 @@ pub trait HasKey {
 		Ref(self.clone_key())
 	}
 }
+
+pub trait HasSingleKey<K>: HasKey<Key = K, Marker = marker::One> {}
+pub trait HasCompositeKey<K>: HasKey<Key = K, Marker = marker::Many> {}
+
+impl<T: HasKey<Marker = marker::One>> HasSingleKey<T::Key> for T {}
+impl<T: HasKey<Marker = marker::Many>> HasCompositeKey<T::Key> for T {}
 
 impl TableDef {
 	pub fn write_sql(&self) -> String {
