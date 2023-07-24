@@ -193,19 +193,18 @@ impl InnerValueDef {
 	const fn count_columns(&self) -> usize {
 		match self {
 			// base case
-			InnerValueDef::Column(_def) => 1,
+			Self::Column(_def) => 1,
 			// multi-column Value implementation on a struct
 			// define each with name prepended
-			//InnerValueDef::Columns(_) => todo!(),
+			//Self::Columns(_) => todo!(),
 			// Single-key Ref
 			// recurse with name
-			InnerValueDef::Value(def) => def.count_columns(),
+			Self::Value(def) => def.count_columns(),
 			// Composite-Key Ref
 			// recurse with name + subname
-			InnerValueDef::Values([(_first_name, first_def), rest @ ..]) =>
-				first_def.count_columns() +
-				InnerValueDef::Values(rest).count_columns(),
-			InnerValueDef::Values([]) => 0
+			Self::Values([(_, first), rest @ ..]) =>
+				first.count_columns() + Self::Values(rest).count_columns(),
+			Self::Values([]) => 0
 		}
 	}
 }

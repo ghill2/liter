@@ -5,7 +5,9 @@ use crate::table::TableDef;
 /// Don't try to implement this trait manually -- use [`#[database]`](crate::database) on a tuple struct of [`Table`]s.
 /// The proc macro won't just generate the [`Schema`] implementation, it will also validate it.
 pub trait Schema {
+	/// Represents the list of tables in the type system
 	type Tables: TableList;
+	/// Statically generated list of table definition structs
 	const DEFINITIONS: &'static [TableDef];
 
 	fn define() -> String {

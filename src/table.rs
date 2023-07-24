@@ -70,7 +70,7 @@ impl TableDef {
 		let mut table_constraints = String::new();
 
 		let [(first_name, first_def), rest @ ..] = self.values else {
-			unreachable!()
+			unreachable!("empty table")
 		};
 		first_def.define(first_name, &mut sql, &mut table_constraints);
 		for (name, def) in rest {
