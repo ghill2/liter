@@ -6,6 +6,8 @@ authors = ["xaos <xaos@xaos.tech>"]
 license = "GPL-3.0-or-later"
 description = "WIP"
 documentation = "https://docs.rs/liter"
+keywords = ["sqlite", "storage", "schema"]
+categories = ["database"]
 
 [dependencies]
 liter_derive = "0.0.2"
