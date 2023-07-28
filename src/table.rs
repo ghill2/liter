@@ -29,6 +29,7 @@ pub struct TableDef {
 	pub checks: &'static [Check],
 }
 
+#[derive(Debug)]
 pub struct Check {
 	pub sql: &'static str
 }

@@ -19,6 +19,7 @@ pub trait Column: FromSql + ToSql + FromSql2 + ToSql2 {
 	};
 }
 
+#[derive(Debug)]
 pub struct ColumnDef {
 	pub affinity: Affinity,
 	pub nullable: bool,

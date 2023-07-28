@@ -15,6 +15,7 @@ pub trait Value: Bind + Fetch {
 	type References;
 }
 
+#[derive(Debug)]
 pub struct ValueDef {
 	pub unique: bool,
 	//pub nullable: bool,
@@ -23,6 +24,7 @@ pub struct ValueDef {
 	pub checks: &'static [Check]
 }
 
+#[derive(Debug)]
 pub enum InnerValueDef {
 	Column (ColumnDef),
 	//Columns (&'static [(&'static str, ColumnDef)]),
@@ -38,6 +40,7 @@ pub enum Check {
 }
 
 // Note: The Value does not know the Type that is being referenced
+#[derive(Debug)]
 pub struct ForeignKey {
 	pub table_name: &'static str,
 	pub deferrable: bool,
