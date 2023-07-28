@@ -1,9 +1,13 @@
+use construe::StrConstrue;
 use rusqlite::types::{
 	FromSql,
 	ToSql
 };
 
-use crate::value::Check;
+use crate::value::{
+	Check,
+	StrChain
+};
 use crate::fetch::FromSql2;
 use crate::bind::ToSql2;
 
@@ -75,6 +79,31 @@ impl ColumnDef {
 			sql.push_str(check);
 			sql.push_str(" ) ");
 		}
+	}
+	pub(crate) const fn push_sql<const N: usize>(
+		&self,
+		name: &StrChain,
+		mut sc: StrConstrue<N>)
+		-> StrConstrue<N>
+	{
+		sc = name.join(sc, "_");
+		sc = sc.push_str(" ");
+		if !self.nullable {
+			sc = sc.push_str(self.affinity.as_str());
+		}
+		else {
+			sc = sc.push_str(self.affinity.as_str_nullable());
+		}
+		let mut checks = self.checks;
+		while let [Check::Sql(check), rest @ ..] = checks {
+			checks = rest;
+			sc = sc.push_str(" CHECK ( ");
+			sc = name.join(sc, "_");
+			sc = sc.push_str(" ");
+			sc = sc.push_str(check);
+			sc = sc.push_str(" ) ");
+		}
+		sc
 	}
 }
 
