@@ -57,7 +57,7 @@ pub struct Database<S: Schema> {
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub struct Id(Option<u64>);
+pub struct Id(Option<i64>);
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Ref<T: HasKey + ?Sized>(pub T::Key);
@@ -150,7 +150,7 @@ impl<S: Schema> Database<S> {
 			return Err(Error::StatementChangedRows(changes));
 		}
 		let id = self.connection.last_insert_rowid();
-		*entry.get_key_mut() = Id::from_u64(id as u64);
+		*entry.get_key_mut() = Id::from_i64(id);
 		Ok(())
 	}
 
@@ -179,12 +179,12 @@ impl<S: Schema> std::ops::DerefMut for Database<S> {
 
 impl Id {
 	pub const NULL: Self = Self(None);
-	pub(crate) fn from_u64(id: u64) -> Self {Self(Some(id))}
+	pub fn from_i64(id: i64) -> Self {Self(Some(id))}
 }
 
 impl FromSql for Id {
 	fn column_result(value: ValueRef<'_>) -> FromSqlResult<Self> {
-		u64::column_result(value).map(Some).map(Self)
+		i64::column_result(value).map(Some).map(Self)
 	}
 }
 impl ToSql for Id {
