@@ -7,7 +7,4 @@
 //! So, whatever they use is re-exported here so that it can be accessed under the `liter` namespace.
 
 pub use rusqlite::Result as SqlResult;
-pub use const_format::{
-	concatcp,
-	str_repeat
-};
+pub use construe::construe;
