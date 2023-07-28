@@ -168,3 +168,22 @@ impl TableDef {
 }
 
 
+pub const fn insert<const N: usize>(name: &str, column_count: usize)
+	-> StrConstrue<N>
+{
+	assert!(column_count >= 1, "table must have at least one column");
+
+	let mut sc = StrConstrue::new();
+	sc = sc.push_str("INSERT INTO \"")
+		.push_str(name)
+		.push_str("\" VALUES (?");
+
+	// start from 1 with the first ? already written to not have trailing comma
+	let mut i = 1;
+	while i < column_count {
+		sc = sc.push_str(", ?");
+		i += 1;
+	}
+	sc.push_str(")")
+}
+
