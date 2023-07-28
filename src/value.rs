@@ -1,3 +1,5 @@
+use construe::StrConstrue;
+
 use crate::{
 	Column,
 	Bind,
@@ -64,6 +66,38 @@ pub enum FkConflictAction {
 	Cascade,
 	Restrict,
 	SetNull
+}
+
+/// Linked list of [`&str`]
+///
+/// Instead of requiring a variably sized collection to store the set of names for each column, store them on the stack as a linked list.
+/// While the size of each type on the stack must be known at compile-time, the depth of recursion does not.
+/// This allows storing a variable number of items on the stack: each recursive invocation receives a reference to the currently stored link and stores it as well, forming a linked list.
+pub(crate) struct StrChain<'l> {
+	name: &'l str,
+	link: Option<&'l StrChain<'l>>
+}
+
+impl<'l> StrChain<'l> {
+	pub const fn start(name: &'l str) -> Self {
+		Self { name, link: None }
+	}
+	pub const fn with(&'l self, name: &'l str) -> Self {
+		Self { name, link: Some(self) }
+	}
+
+	pub const fn join<const L: usize>(
+		&self,
+		mut construe: StrConstrue<L>,
+		separator: &str)
+		-> StrConstrue<L>
+	{
+		if let Some(prev) = self.link.as_ref() {
+			construe = prev.join(construe, separator);
+			construe = construe.push_str(separator);
+		}
+		construe.push_str(self.name)
+	}
 }
 
 /*
