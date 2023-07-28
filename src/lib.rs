@@ -74,7 +74,7 @@ impl<S: Schema> Database<S> {
 	}
 	pub fn create_in_memory() -> SqlResult<Self> {
 		let new = Connection::open_in_memory().and_then(Self::from_connection)?;
-		new.connection.execute_batch(&S::define())?;
+		new.connection.execute_batch(S::CREATE)?;
 		Ok(new)
 	}
 

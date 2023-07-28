@@ -1,5 +1,8 @@
+use construe::StrConstrue;
+
 use crate::Table;
 use crate::table::TableDef;
+
 /// The set of [`Table`]s contained in a [`Database`](crate::Database)
 ///
 /// Don't try to implement this trait manually -- use [`#[database]`](crate::database) on a tuple struct of [`Table`]s.
@@ -10,6 +13,7 @@ pub trait Schema {
 	/// Statically generated list of table definition structs
 	const DEFINITIONS: &'static [TableDef];
 
+	const CREATE: &'static str;
 	fn define() -> String {
 		let tables = Self::DEFINITIONS.iter()
 			.map(TableDef::write_sql)
@@ -17,6 +21,18 @@ pub trait Schema {
 			.unwrap_or_default();
 		format!("BEGIN TRANSACTION;\n{tables}\nEND TRANSACTION;\n")
 	}
+}
+
+pub const fn define<const N: usize>(mut tables: &[&str]) -> StrConstrue<N> {
+	let mut sc = StrConstrue::new();
+
+	sc = sc.push_str("BEGIN TRANSACTION;\n");
+	while let [table, rest @ ..] = tables {
+		sc = sc.push_str(table);
+		sc = sc.push_str("\n");
+		tables = rest;
+	}
+	sc.push_str("END TRANSACTION;\n")
 }
 
 /// Helper trait for implementing the [`Schema`]
