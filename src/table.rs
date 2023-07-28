@@ -1,3 +1,5 @@
+use construe::StrConstrue;
+
 use crate::{
 	Bind,
 	Fetch,
@@ -11,12 +13,15 @@ use crate::meta::tuple::{
 };
 use crate::value::{
 	ValueDef,
-	InnerValueDef
+	InnerValueDef,
+	StrChain
 };
 
 pub trait Table {
 	const NAME: &'static str;
 	const DEFINITION: TableDef;
+	const CREATE_TABLE: &'static str;
+
 	type References;
 }
 
@@ -99,6 +104,66 @@ impl TableDef {
 
 		sql += "\n); ";
 		sql
+	}
+
+	pub const fn define<const N: usize>(&self) -> StrConstrue<N> {
+		let mut sc = StrConstrue::new();
+		sc = sc.push_str("CREATE TABLE ");
+		sc = sc.push_str(self.name);
+		sc = sc.push_str(" (\n\t");
+
+		let [(first_name, first_def), other_values @ ..] = self.values else {
+			panic!("empty table")
+		};
+
+		// DEFINE COLUMNS
+		sc = first_def.inner.push_sql(&StrChain::start(first_name), sc);
+		let mut values = other_values;
+		while let [(name, def), rest @ ..] = values {
+			values = rest;
+			sc = sc.push_str(",\n\t");
+			sc = def.inner.push_sql(&StrChain::start(name), sc);
+		}
+
+		// DEFINE PRIMARY KEY CONSTRAINT
+		match self.key_values {
+			//no primary key
+			[] => {},
+			//single or composite primary key
+			[(first_name, first_def), rest @ ..] => {
+				sc = sc.push_str(",\n\tPRIMARY KEY ( ");
+				sc = first_def.inner
+					.push_column_names(&StrChain::start(first_name), sc);
+				let mut key_values = rest;
+				while let [(name, def), rest @ ..] = key_values {
+					key_values = rest;
+					sc = sc.push_str(", ");
+					sc = def.inner
+						.push_column_names(&StrChain::start(name), sc);
+				}
+				sc = sc.push_str(" )");
+				// TODO: "ON CONFLICT " clause
+			}
+		}
+
+		// DEFINE VALUE CONSTRAINTS AT TABLE LEVEL
+		sc = first_def.push_constraint_sql(first_name, sc);
+		let mut values = other_values;
+		while let [(name, def), rest @ ..] = values {
+			values = rest;
+			sc = def.push_constraint_sql(name, sc);
+		}
+
+		// ADD TABLE-LEVEL CHECKS
+		let mut checks = self.checks;
+		while let [check, rest @ ..] = checks {
+			checks = rest;
+			sc = sc.push_str(",\n\tCHECK (")
+				.push_str(check.sql)
+				.push_str(")");
+		}
+
+		sc.push_str("\n) STRICT;")
 	}
 }
 
