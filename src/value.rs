@@ -105,6 +105,20 @@ impl<'l> StrChain<'l> {
  */
 
 impl ForeignKey {
+	pub(crate) const fn push_sql<const N: usize>(&self, mut sc: StrConstrue<N>)
+		-> StrConstrue<N>
+	{
+		sc = sc.push_str(" REFERENCES ");
+		sc = sc.push_str(self.table_name);
+		sc = sc.push_str("\n\t\tON UPDATE ");
+		sc = sc.push_str(self.on_update.as_sql());
+		sc = sc.push_str("\n\t\tON DELETE ");
+		sc = sc.push_str(self.on_delete.as_sql());
+		if self.deferrable {
+			sc = sc.push_str("\n\t\tDEFERRABLE INITIALLY DEFERRED");
+		}
+		sc
+	}
 	pub(crate) fn write_sql_to(&self, sql: &mut String) {
 		sql.push_str(" REFERENCES ");
 		sql.push_str(self.table_name);
@@ -120,7 +134,7 @@ impl ForeignKey {
 
 
 impl FkConflictAction {
-	fn as_sql(self) -> &'static str {
+	const fn as_sql(self) -> &'static str {
 		match self {
 			Self::Cascade => "CASCADE",
 			Self::Restrict => "RESTRICT",
@@ -170,11 +184,78 @@ impl ValueDef {
 			constraints.push_str(check);
 			constraints.push(')');
 		}
-
+	}
+	pub const fn push_constraint_sql<const N: usize>(
+		&self,
+		name: &str,
+		mut sc: StrConstrue<N>)
+		-> StrConstrue<N>
+	{
+		if self.unique {
+			// TODO: if inner is single-column: append UNIQUE instead
+			sc = sc.push_str(",\n\tUNIQUE (");
+			sc = self.inner.push_column_names(&StrChain::start(name), sc);
+			sc = sc.push_str(")");
+		}
+		if let Some(ref fk_ref) = self.reference {
+			sc = sc.push_str(",\n\tFOREIGN KEY (");
+			sc = self.inner.push_column_names(&StrChain::start(name), sc);
+			sc = sc.push_str(")");
+			sc = fk_ref.push_sql(sc)
+		}
+		/*
+		TODO: CHECK CONSTRAINTS
+		*/
+		sc
 	}
 }
 
 impl InnerValueDef {
+	pub(crate) const fn push_column_names<const N: usize>(
+		&self,
+		chain: &StrChain<'_>,
+		mut sc: StrConstrue<N>)
+		-> StrConstrue<N>
+	{
+		match self {
+			Self::Column(_def) => chain.join(sc, "_"),
+			Self::Value(def) => def.push_column_names(chain, sc),
+			// this matches only on the last definition
+			Self::Values([(name, def)]) =>
+				def.push_column_names(&chain.with(name), sc),
+			// this would also match on the last definition, so it comes after
+			Self::Values([(first_name, first_def), rest @ ..]) => {
+				// this descends
+				sc = first_def.push_column_names(&chain.with(first_name), sc);
+				sc = sc.push_str(", ");
+				// this doesn't actually descend (yet), it's just unpacking
+				Self::Values(rest).push_column_names(chain, sc)
+			},
+			Self::Values([]) => panic!("empty Values([])")
+		}
+	}
+	pub(crate) const fn push_sql<const N: usize>(
+		&self,
+		chain: &StrChain<'_>,
+		mut sc: StrConstrue<N>)
+		-> StrConstrue<N>
+	{
+		match self {
+			Self::Column(def) => def.push_sql(chain, sc),
+			Self::Value(def) => def.push_sql(chain, sc),
+			// this matches only on the last definition
+			Self::Values([(name, def)]) => def.push_sql(&chain.with(name), sc),
+			// this would also match on the last definition, so it comes after
+			Self::Values([(first_name, first_def), rest @ ..]) => {
+				// this descends
+				sc = first_def.push_sql(&chain.with(first_name), sc);
+				sc = sc.push_str(",\n\t");
+				// this doesn't actually descend (yet), it's just unpacking
+				Self::Values(rest).push_sql(chain, sc)
+			},
+			Self::Values([]) => panic!("empty Values([])")
+		}
+	}
 	pub fn write_column_names(&self, name: &str, into: &mut String) {
 		match self {
 			// base case
