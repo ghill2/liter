@@ -178,6 +178,27 @@ impl TableDef {
 	}
 }
 
+pub const fn get_by_key<const N: usize>(name: &str, key_columns: &[&str])
+	-> StrConstrue<N>
+{
+	let mut sc = StrConstrue::new();
+	sc = sc.push_str("SELECT * FROM ")
+		.push_str(name)
+		.push_str(" WHERE (");
+
+	let [first, other_columns @ ..] = key_columns else {
+		panic!("no key columns")
+	};
+	sc = sc.push_str(first).push_str(" = ?");
+
+	let mut columns = other_columns;
+	while let [name, rest @ ..] = columns {
+		sc = sc.push_str(" AND ").push_str(name).push_str(" = ?");
+		columns = rest;
+	}
+
+	sc.push_str(")")
+}
 
 pub const fn insert<const N: usize>(name: &str, column_count: usize)
 	-> StrConstrue<N>
