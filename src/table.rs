@@ -25,12 +25,16 @@ pub trait Table {
 	type References;
 }
 
+pub type Values = &'static [(&'static str, ValueDef)];
+
 pub struct TableDef {
 	// TODO: "ON CONFLICT " clause
 	//on_conflict: ???,
 	pub name: &'static str,
 	pub primary_key:  &'static [&'static str],
-	pub values: &'static [(&'static str, ValueDef)],
+	pub values: Values,
+	pub key_values: Values,
+	pub other_values: Values,
 	pub checks: &'static [Check],
 }
 
