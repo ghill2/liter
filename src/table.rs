@@ -1,4 +1,7 @@
-use construe::StrConstrue;
+use construe::{
+	Construe,
+	StrConstrue
+};
 
 use crate::{
 	Bind,
@@ -21,6 +24,10 @@ pub trait Table {
 	const NAME: &'static str;
 	const DEFINITION: TableDef;
 	const CREATE_TABLE: &'static str;
+
+	const ALL_COLUMNS: &'static [&'static str];
+	const KEY_COLUMNS: &'static [&'static str];
+	const OTHER_COLUMNS: &'static [&'static str];
 
 	type References;
 }
@@ -191,3 +198,109 @@ pub const fn insert<const N: usize>(name: &str, column_count: usize)
 	sc.push_str(")")
 }
 
+pub struct Names<const C: usize, const L: usize> {
+	bytes: StrConstrue<L>,
+	names: Construe<(usize, usize), C>
+}
+pub struct NameArrays<const C: usize, const L: usize> {
+	bytes: [u8; L],
+	names: [(usize, usize); C]
+}
+
+impl Names<0, 0> {
+	pub const fn calculate_lengths(values: Values) -> (usize, usize) {
+		let new = Self::from_values(values);
+		(new.names.len(), new.bytes.len())
+	}
+}
+impl<const C: usize, const L: usize> Names<C, L> {
+	const fn new() -> Self {
+		Self {
+			bytes: StrConstrue::new(),
+			names: Construe::new()
+		}
+	}
+
+	pub const fn from_values(mut values: Values) -> Self {
+		let mut new = Self::new();
+		while let [(val_name, val_def), rest @ ..] = values {
+			values = rest;
+			new = new.collect_columns(val_def, val_name);
+		}
+		new
+	}
+	const fn collect_columns(self, def: &ValueDef, name: &str) -> Self {
+		let name_chain = StrChain::start(name);
+		self.traverse_value(&name_chain, &def.inner)
+	}
+	const fn traverse_value(
+		mut self,
+		chain: &StrChain<'_>,
+		def: &InnerValueDef)
+		-> Self
+	{
+		match def {
+			InnerValueDef::Column(_def) => {
+				let start = self.bytes.len();
+				self.bytes = chain.join(self.bytes, "_");
+				let end = self.bytes.len();
+				self.names = self.names.push((start, end)).0;
+				self
+			},
+			InnerValueDef::Value(def) => self.traverse_value(chain, def),
+			InnerValueDef::Values([(first_name, first_def), rest @ ..]) => {
+				// this descends
+				self = self.traverse_value(&chain.with(first_name), first_def);
+				// this doesn't actually descend (yet), it's just unpacking
+				self.traverse_value(chain, &InnerValueDef::Values(rest))
+			},
+			InnerValueDef::Values([]) => self
+		}
+	}
+	pub const fn finish(self) -> NameArrays<C, L> {
+		NameArrays {
+			bytes: self.bytes.store_bytes(),
+			names: self.names.finish()
+		}
+	}
+	pub const fn slice_array(arrays: &NameArrays<C, L>) -> [&str; C] {
+		let mut bytes = arrays.bytes.as_slice();
+		let mut array = [""; C];
+		let mut i = 0;
+		while i < C {
+			let (start, end) = arrays.names[i];
+			let (name, rest) = bytes.split_at(end - start);
+			array[i] = match std::str::from_utf8(name) {
+				Ok(n) => n,
+				Err(_e) => panic!("assembled byte slice contains invalid UTF-8")
+			};
+			bytes = rest;
+			i += 1;
+		}
+		array
+	}
+}
+
+#[doc(hidden)]
+#[macro_export]
+macro_rules! column_names {
+	($name:ident => $values:expr) => {
+		const $name: &'static [&'static str] = {
+			use $crate::table::Names;
+			const VALUES: $crate::table::Values = $values;
+			const LENGTHS: (usize, usize) = Names::calculate_lengths(&VALUES);
+			const ARRAYS: $crate::table::NameArrays<{LENGTHS.0}, {LENGTHS.1}> =
+				Names::from_values(&VALUES).finish();
+			const NAMES: [&str; LENGTHS.0] = Names::slice_array(&ARRAYS);
+			&NAMES
+		};
+	};
+	($def:expr) => {
+		$crate::table::column_names!(ALL_COLUMNS => $def.values);
+		$crate::table::column_names!(KEY_COLUMNS => $def.key_values);
+		$crate::table::column_names!(OTHER_COLUMNS => $def.other_values);
+	}
+}
+
+#[doc(inline)]
+pub use column_names;
