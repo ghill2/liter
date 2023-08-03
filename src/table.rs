@@ -78,45 +78,6 @@ impl<T: HasKey<Marker = marker::One>> HasSingleKey<T::Key> for T {}
 impl<T: HasKey<Marker = marker::Many>> HasCompositeKey<T::Key> for T {}
 
 impl TableDef {
-	pub fn write_sql(&self) -> String {
-
-		let mut sql = String::from("CREATE TABLE ");
-		sql += self.name;
-		sql += " (\n\t";
-
-		let mut table_constraints = String::new();
-
-		let [(first_name, first_def), rest @ ..] = self.values else {
-			unreachable!("empty table")
-		};
-		first_def.define(first_name, &mut sql, &mut table_constraints);
-		for (name, def) in rest {
-			sql.push_str(",\n\t");
-			def.define(name, &mut sql, &mut table_constraints);
-		}
-
-		match self.primary_key {
-			//no primary key
-			[] => {},
-			//single or composite primary key
-			[first, rest @ ..] => {
-				sql.push_str(",\n\tPRIMARY KEY ( ");
-				sql.push_str(first);
-				for k in rest {
-					sql.push_str(", ");
-					sql.push_str(k);
-				}
-				sql.push_str(" )");
-				// TODO: "ON CONFLICT " clause
-			},
-		}
-
-		sql += &table_constraints;
-
-		sql += "\n); ";
-		sql
-	}
-
 	pub const fn define<const N: usize>(&self) -> StrConstrue<N> {
 		let mut sc = StrConstrue::new();
 		sc = sc.push_str("CREATE TABLE ");

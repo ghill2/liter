@@ -63,23 +63,6 @@ impl ColumnDef {
 	/// ```sql
 	/// column_name INTEGER NOT NULL
 	/// ```
-	pub(crate) fn write_sql_to(&self, name: &str, sql: &mut String) {
-		sql.push_str(name);
-		sql.push(' ');
-		if !self.nullable {
-			sql.push_str(self.affinity.as_str());
-		}
-		else {
-			sql.push_str(self.affinity.as_str_nullable());
-		}
-		for Check::Sql(check) in self.checks.iter() {
-			sql.push_str(" CHECK ( ");
-			sql.push_str(name);
-			sql.push(' ');
-			sql.push_str(check);
-			sql.push_str(" ) ");
-		}
-	}
 	pub(crate) const fn push_sql<const N: usize>(
 		&self,
 		name: &StrChain,

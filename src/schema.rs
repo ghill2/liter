@@ -14,13 +14,6 @@ pub trait Schema {
 	const DEFINITIONS: &'static [TableDef];
 
 	const CREATE: &'static str;
-	fn define() -> String {
-		let tables = Self::DEFINITIONS.iter()
-			.map(TableDef::write_sql)
-			.reduce(|acc, def| acc + "\n" + &def)
-			.unwrap_or_default();
-		format!("BEGIN TRANSACTION;\n{tables}\nEND TRANSACTION;\n")
-	}
 }
 
 pub const fn define<const N: usize>(mut tables: &[&str]) -> StrConstrue<N> {
