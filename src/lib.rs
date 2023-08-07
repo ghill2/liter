@@ -160,6 +160,12 @@ impl<S: Schema> Database<S> {
 		stmt.raw_execute()
 	}
 
+	pub fn update<T: HasKey + Entry>(&self, entry: &T) -> SqlResult<usize> {
+		let mut stmt = self.connection.prepare(T::UPDATE)?;
+		Binder::make(&mut stmt).bind(entry)?;
+		stmt.raw_execute()
+	}
+
 	pub fn execute<T: Bind>(&self, sql: &str, params: &T) -> SqlResult<usize> {
 		let mut stmt = self.prepare(sql)?;
 		Binder::make(&mut stmt).bind(params)?;

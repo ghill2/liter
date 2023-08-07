@@ -27,10 +27,16 @@ fn single_primary_key() -> rusqlite::Result<()> {
 	db.create(&mut item)?;
 	assert_ne!(item.id, Id::NULL, "inserting must change id");
 
-	let item_2 = item.clone();
+	let mut item_2 = item.clone();
 	db.insert(&item_2).expect_err(
 		"inserting with same Id should violate primary key constraint and fail"
 	);
+
+	item_2.data = 99999999;
+	assert_eq!(db.update(&item_2)?, 1);
+
+	let updated_item: Item = db.get(item_2.id.clone())?.unwrap();
+	assert_eq!(updated_item, item_2);
 
 	Ok(())
 }
@@ -69,6 +75,14 @@ fn composite_primary_key() -> rusqlite::Result<()> {
 	db.insert(&item_2).expect_err(
 		"inserting with same key should violate primary key constraint and fail"
 	);
+
+	let mut item = db.get_all::<Item>()?.pop().unwrap();
+	item.data = 999999999;
+	assert_eq!(db.update(&item)?, 1);
+
+	let updated_item = db.get_all::<Item>()?.pop().unwrap();
+	assert_eq!(item, updated_item);
+
 
 	Ok(())
 }

@@ -57,6 +57,8 @@ pub trait Entry: Sized + Fetch + Bind {
 
 pub trait HasKey {
 	const GET_BY_KEY: &'static str;
+	const UPDATE: &'static str;
+
 	const KEY_VALUE: InnerValueDef;
 	type Marker: Marker;
 	type Key: Fetch + Bind + Tuple<Self::Marker>;
@@ -180,6 +182,90 @@ pub const fn insert<const N: usize>(name: &str, column_count: usize)
 	sc.push_str(")")
 }
 
+const fn push_int<const N: usize>(mut sc: StrConstrue<N>, int: usize)
+	-> StrConstrue<N>
+{
+	if int >= 10 {
+		sc = push_int(sc, int / 10);
+	}
+	let byte = [b'0' + ((int % 10) as u8)];
+	let Ok(slice) = std::str::from_utf8(&byte) else {panic!()};
+	sc = sc.push_str(slice);
+	sc
+}
+
+pub const fn update<const N: usize>(
+	name: &str,
+	val_is_key_and_count: &[(bool, usize)],
+	all_columns: &[&str])
+	-> StrConstrue<N>
+{
+	assert!(!all_columns.is_empty(), "table must have at least one column");
+
+	// build UPDATE statement by iterating over val_is_key_and_count twice
+	// - first pass writes all the non-key columns, second all the key columns
+	// - param_idx is the SQL parameter index (?n) with the Entry Bind order
+
+	let mut sc = StrConstrue::new();
+	sc = sc.push_str("UPDATE \"")
+		.push_str(name)
+		.push_str("\" SET ");
+
+	// SET col_a = ?1, col_c = ?3, col_d = ?4
+
+	let mut is_first = true;
+	let mut param_idx = 0;
+	let mut val_idx = 0;
+	while val_idx < val_is_key_and_count.len() {
+		let (is_key, count) = val_is_key_and_count[val_idx];
+		if is_key {
+			param_idx += count;
+		}
+		else {
+			let last_col_idx = param_idx + count;
+			while param_idx < last_col_idx {
+				if !is_first {
+					sc = sc.push_str(", ");
+				}
+				else {is_first = false;}
+				sc = sc.push_str(all_columns[param_idx]);
+				sc = sc.push_str(" = ?");
+				sc = push_int(sc, param_idx + 1); // params 1-based
+				param_idx += 1;
+			}
+		}
+		val_idx += 1;
+	}
+	sc = sc.push_str(" WHERE ");
+
+	// WHERE col_b = ?2 AND col_e = ?5 AND col_f = ?6
+
+	let mut is_first = true;
+	let mut param_idx = 0;
+	let mut val_idx = 0;
+	while val_idx < val_is_key_and_count.len() {
+		let (is_key, count) = val_is_key_and_count[val_idx];
+		if !is_key {
+			param_idx += count;
+		}
+		else {
+			let last_col_idx = param_idx + count;
+			while param_idx < last_col_idx {
+				if !is_first {
+					sc = sc.push_str(" AND ");
+				}
+				else {is_first = false;}
+				sc = sc.push_str(all_columns[param_idx]);
+				sc = sc.push_str(" = ?");
+				sc = push_int(sc, param_idx + 1); // params 1-based
+				param_idx += 1;
+			}
+		}
+		val_idx += 1;
+	}
+	sc
+}
+
 pub struct Names<const C: usize, const L: usize> {
 	bytes: StrConstrue<L>,
 	names: Construe<(usize, usize), C>
@@ -286,3 +372,28 @@ macro_rules! column_names {
 
 #[doc(inline)]
 pub use column_names;
+
+
+#[test]
+fn itoa() {
+	const fn display_int<const N: usize>(int: usize) -> StrConstrue<N> {
+		let sc = StrConstrue::new();
+		push_int(sc, int)
+	}
+
+	macro_rules! check_ints {
+		($( $i:literal => $s:literal),* ) => {
+			$( assert_eq!( construe::construe!(&str => display_int($i)), $s) );*
+		};
+	}
+	check_ints! [
+		1 => "1",
+		12 => "12",
+		123 => "123",
+		1234 => "1234",
+		123456 => "123456",
+		99999999 => "99999999",
+		18446744073709551615 => "18446744073709551615"
+	];
+}
+
