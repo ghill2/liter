@@ -1,12 +1,5 @@
-pub mod bind;
-pub use bind::{
-	Bind,
-	Binder
-};
 pub mod column;
 pub use column::Column;
-pub mod fetch;
-pub use fetch::Fetch;
 pub mod meta;
 pub mod schema;
 pub use schema::Schema;
@@ -15,6 +8,12 @@ pub use table::{
 	Entry,
 	HasKey,
 	Table
+};
+pub mod types;
+pub use types::{
+	Bind,
+	Binder,
+	Fetch
 };
 pub mod util;
 pub mod value;
@@ -198,8 +197,8 @@ impl ToSql for Id {
 		self.0.to_sql()
 	}
 }
-impl crate::bind::ToSql2 for Id {}
-impl crate::fetch::FromSql2 for Id {}
+impl crate::types::ToSql2 for Id {}
+impl crate::types::FromSql2 for Id {}
 
 impl Column for Id {
 	const AFFINITY: Affinity = Affinity::Integer;
@@ -232,7 +231,7 @@ impl<T: Table + HasKey> Value for Ref<T> {
 }
 
 impl<T: Table + HasKey> Fetch for Ref<T> {
-	fn fetch(fetcher: &mut fetch::Fetcher<'_>) -> SqlResult<Self> {
+	fn fetch(fetcher: &mut crate::types::Fetcher<'_>) -> SqlResult<Self> {
 		T::Key::fetch(fetcher).map(Self)
 	}
 }

@@ -13,8 +13,8 @@ use liter::{
 	Ref,
 	Column,
 	Value,
-	bind::ToSql2,
-	fetch::FromSql2,
+	types::ToSql2,
+	types::FromSql2,
 	database,
 };
 use liter::value::{

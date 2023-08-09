@@ -8,8 +8,10 @@ use crate::value::{
 	Check,
 	StrChain
 };
-use crate::fetch::FromSql2;
-use crate::bind::ToSql2;
+use crate::types::{
+	FromSql2,
+	ToSql2
+};
 
 pub trait Column: FromSql + ToSql + FromSql2 + ToSql2 {
 	const AFFINITY: Affinity;

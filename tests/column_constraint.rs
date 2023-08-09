@@ -9,9 +9,9 @@ use liter::{
 	Table,
 	Entry,
 	Column,
-	bind::ToSql2,
+	types::ToSql2,
 	column::Affinity,
-	fetch::FromSql2,
+	types::FromSql2,
 	value::Check,
 	database,
 };
