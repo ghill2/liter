@@ -197,8 +197,7 @@ impl ToSql for Id {
 		self.0.to_sql()
 	}
 }
-impl crate::types::ToSql2 for Id {}
-impl crate::types::FromSql2 for Id {}
+crate::types::impl_from_to_sql_2!(Id);
 
 impl Column for Id {
 	const AFFINITY: Affinity = Affinity::Integer;

@@ -9,9 +9,8 @@ use liter::{
 	Table,
 	Entry,
 	Column,
-	types::ToSql2,
+	types::impl_from_to_sql_2,
 	column::Affinity,
-	types::FromSql2,
 	value::Check,
 	database,
 };
@@ -147,8 +146,7 @@ fn check_even_number() {
 			u64::column_result(value).map(Self)
 		}
 	}
-	impl ToSql2 for EvenNumber {}
-	impl FromSql2 for EvenNumber {}
+	impl_from_to_sql_2!(EvenNumber);
 
 
 	#[database]
@@ -198,8 +196,7 @@ fn check_short_string() {
 			String::column_result(value).map(Self)
 		}
 	}
-	impl ToSql2 for ShortString {}
-	impl FromSql2 for ShortString {}
+	impl_from_to_sql_2!(ShortString);
 
 
 	#[database]

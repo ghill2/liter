@@ -13,8 +13,7 @@ use liter::{
 	Ref,
 	Column,
 	Value,
-	types::ToSql2,
-	types::FromSql2,
+	types::impl_from_to_sql_2,
 	database,
 };
 use liter::value::{
@@ -46,8 +45,7 @@ fn unique_column() -> rusqlite::Result<()> {
 			u8::column_result(value).map(Self)
 		}
 	}
-	impl ToSql2 for UniqueNumber {}
-	impl FromSql2 for UniqueNumber {}
+	impl_from_to_sql_2!(UniqueNumber);
 
 
 	#[database]
