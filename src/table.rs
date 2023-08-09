@@ -1,6 +1,7 @@
 use construe::{
 	Construe,
-	StrConstrue
+	StrConstrue,
+	write
 };
 
 use crate::{
@@ -182,18 +183,6 @@ pub const fn insert<const N: usize>(name: &str, column_count: usize)
 	sc.push_str(")")
 }
 
-const fn push_int<const N: usize>(mut sc: StrConstrue<N>, int: usize)
-	-> StrConstrue<N>
-{
-	if int >= 10 {
-		sc = push_int(sc, int / 10);
-	}
-	let byte = [b'0' + ((int % 10) as u8)];
-	let Ok(slice) = std::str::from_utf8(&byte) else {panic!()};
-	sc = sc.push_str(slice);
-	sc
-}
-
 pub const fn update<const N: usize>(
 	name: &str,
 	val_is_key_and_count: &[(bool, usize)],
@@ -207,9 +196,7 @@ pub const fn update<const N: usize>(
 	// - param_idx is the SQL parameter index (?n) with the Entry Bind order
 
 	let mut sc = StrConstrue::new();
-	sc = sc.push_str("UPDATE \"")
-		.push_str(name)
-		.push_str("\" SET ");
+	write!(sc, "UPDATE \"", name, "\" SET ");
 
 	// SET col_a = ?1, col_c = ?3, col_d = ?4
 
@@ -228,9 +215,12 @@ pub const fn update<const N: usize>(
 					sc = sc.push_str(", ");
 				}
 				else {is_first = false;}
-				sc = sc.push_str(all_columns[param_idx]);
-				sc = sc.push_str(" = ?");
-				sc = push_int(sc, param_idx + 1); // params 1-based
+				write!(
+					sc,
+					all_columns[param_idx],
+					" = ?",
+					param_idx + 1 // params 1-based
+				);
 				param_idx += 1;
 			}
 		}
@@ -255,9 +245,12 @@ pub const fn update<const N: usize>(
 					sc = sc.push_str(" AND ");
 				}
 				else {is_first = false;}
-				sc = sc.push_str(all_columns[param_idx]);
-				sc = sc.push_str(" = ?");
-				sc = push_int(sc, param_idx + 1); // params 1-based
+				write!(
+					sc,
+					all_columns[param_idx],
+					" = ?",
+					param_idx + 1 // params 1-based
+				);
 				param_idx += 1;
 			}
 		}
@@ -372,28 +365,4 @@ macro_rules! column_names {
 
 #[doc(inline)]
 pub use column_names;
-
-
-#[test]
-fn itoa() {
-	const fn display_int<const N: usize>(int: usize) -> StrConstrue<N> {
-		let sc = StrConstrue::new();
-		push_int(sc, int)
-	}
-
-	macro_rules! check_ints {
-		($( $i:literal => $s:literal),* ) => {
-			$( assert_eq!( construe::construe!(&str => display_int($i)), $s) );*
-		};
-	}
-	check_ints! [
-		1 => "1",
-		12 => "12",
-		123 => "123",
-		1234 => "1234",
-		123456 => "123456",
-		99999999 => "99999999",
-		18446744073709551615 => "18446744073709551615"
-	];
-}
 
