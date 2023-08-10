@@ -59,6 +59,7 @@ pub trait Entry: Sized + Fetch + Bind {
 pub trait HasKey {
 	const GET_BY_KEY: &'static str;
 	const UPDATE: &'static str;
+	const DELETE: &'static str;
 
 	const KEY_VALUE: InnerValueDef;
 	type Marker: Marker;
@@ -161,6 +162,25 @@ pub const fn get_by_key<const N: usize>(name: &str, key_columns: &[&str])
 		columns = rest;
 	}
 
+	sc.push_str(")")
+}
+
+pub const fn delete<const N: usize>(name: &str, key_columns: &[&str])
+	-> StrConstrue<N>
+{
+	let mut sc = StrConstrue::new();
+	write!(sc, "DELETE FROM ", name, " WHERE (");
+
+	let [first, other_columns @ ..] = key_columns else {
+		panic!("no key columns")
+	};
+	write!(sc, *first, " = ?");
+
+	let mut columns = other_columns;
+	while let [name, rest @ ..] = columns {
+		write!(sc, " AND ", *name, " = ?");
+		columns = rest;
+	}
 	sc.push_str(")")
 }
 

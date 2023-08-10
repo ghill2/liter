@@ -164,6 +164,13 @@ impl<S: Schema> Database<S> {
 		Binder::make(&mut stmt).bind(entry)?;
 		stmt.raw_execute()
 	}
+	pub fn delete<T>(&self, key: &<T as HasKey>::Key) -> SqlResult<bool>
+		where T: Entry + HasKey
+	{
+		let mut stmt = self.connection.prepare(T::DELETE)?;
+		Binder::make(&mut stmt).bind(key)?;
+		stmt.raw_execute().map(|i| i == 1)
+	}
 
 	pub fn execute<T: Bind>(&self, sql: &str, params: &T) -> SqlResult<usize> {
 		let mut stmt = self.prepare(sql)?;
