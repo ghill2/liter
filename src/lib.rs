@@ -159,6 +159,11 @@ impl<S: Schema> Database<S> {
 		stmt.raw_execute()
 	}
 
+	pub fn upsert<T: HasKey + Entry>(&self, entry: &T) -> SqlResult<usize> {
+		let mut stmt = self.connection.prepare(T::UPSERT)?;
+		Binder::make(&mut stmt).bind(entry)?;
+		stmt.raw_execute()
+	}
 	pub fn update<T: HasKey + Entry>(&self, entry: &T) -> SqlResult<usize> {
 		let mut stmt = self.connection.prepare(T::UPDATE)?;
 		Binder::make(&mut stmt).bind(entry)?;

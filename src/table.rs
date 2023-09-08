@@ -58,6 +58,7 @@ pub trait Entry: Sized + Fetch + Bind {
 
 pub trait HasKey {
 	const GET_BY_KEY: &'static str;
+	const UPSERT: &'static str;
 	const UPDATE: &'static str;
 	const DELETE: &'static str;
 
@@ -201,6 +202,58 @@ pub const fn insert<const N: usize>(name: &str, column_count: usize)
 		i += 1;
 	}
 	sc.push_str(")")
+}
+
+pub const fn upsert<const N: usize>(
+	name: &str,
+	key_columns: &[&str],
+	other_columns: &[&str])
+	-> StrConstrue<N>
+{
+	let mut sc = StrConstrue::new();
+	sc = sc.push_str("INSERT INTO \"")
+		.push_str(name)
+		.push_str("\" VALUES (?");
+
+	// start from 1 with the first ? already written to not have trailing comma
+	let mut i = 1;
+	while i < key_columns.len() + other_columns.len() {
+		sc = sc.push_str(", ?");
+		i += 1;
+	}
+	sc = sc.push_str(") ON CONFLICT (");
+
+	let [first, other_key_columns @ ..] = key_columns else {
+		panic!("no key columns")
+	};
+	sc = sc.push_str(first);
+
+	let mut columns = other_key_columns;
+	while let [name, rest @ ..] = columns {
+		sc = sc.push_str(", ").push_str(name);
+		columns = rest;
+	}
+	sc = sc.push_str(") ");
+
+	let [first, other_non_key_columns @ ..] = other_columns else {
+		// key-only table
+		return sc.push_str("DO NOTHING");
+	};
+	sc = sc.push_str("DO UPDATE SET ")
+		.push_str(first)
+		.push_str(" = excluded.")
+		.push_str(first);
+
+	let mut columns = other_non_key_columns;
+	while let [name, rest @ ..] = columns {
+		sc = sc.push_str(", ")
+			.push_str(name)
+			.push_str(" = excluded.")
+			.push_str(name);
+		columns = rest;
+	}
+
+	sc
 }
 
 pub const fn update<const N: usize>(
