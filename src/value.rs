@@ -1,3 +1,5 @@
+//! Datatypes that consist of one or more [`Column`]s and make up [`Table`]s
+
 use construe::StrConstrue;
 
 use crate::{
@@ -11,6 +13,7 @@ use crate::table::{
 	HasKey
 };
 
+/// A (compound) datatype that can be used in a [`Table`]
 pub trait Value: Bind + Fetch {
 	const DEFINITION: ValueDef;
 	const COLUMN_COUNT: usize = Self::DEFINITION.inner.count_columns();

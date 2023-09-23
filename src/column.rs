@@ -1,3 +1,5 @@
+//! Data primitives -- a [`Column`] defined by [`Affinity`] & [`Check`]s
+
 use construe::StrConstrue;
 use rusqlite::types::{
 	FromSql,
