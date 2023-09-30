@@ -135,6 +135,15 @@ column!(u64, Affinity::Integer);
 
 column!(usize, Affinity::Integer);
 
+/* BOOL */
+impl Column for bool {
+	const AFFINITY: Affinity = Affinity::Integer;
+	const NULLABLE: bool = false;
+	const CHECKS: &'static [Check] = &[
+		Check::Sql("BETWEEN 0 AND 1")
+	];
+}
+
 /* NULLABLE */
 impl<T: Column> Column for Option<T> {
 	const AFFINITY: Affinity = T::AFFINITY;
