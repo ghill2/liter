@@ -88,6 +88,18 @@ impl<S: Schema> Database<S> {
 		Connection::open_with_flags(path, DB_OPEN_FLAGS)
 			.and_then(Self::from_connection)
 	}
+	/// Create, initialize & open the database at the path
+	///
+	/// Note: this (incorrectly) returns an [`Error::InvalidPath`] if `path` already exists.
+	pub fn init(path: &Path) -> SqlResult<Self> {
+		if path.exists() {
+			return Err(Error::InvalidPath(path.to_path_buf()));
+		}
+		let connection = Connection::open(path)?;
+		connection.pragma_update(None, "foreign_keys", "on")?;
+		connection.execute_batch(S::CREATE)?;
+		Ok(Self { connection, schema: PhantomData })
+	}
 	pub fn create_in_memory() -> SqlResult<Self> {
 		let new = Connection::open_in_memory().and_then(Self::from_connection)?;
 		new.connection.execute_batch(S::CREATE)?;
