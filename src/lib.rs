@@ -38,6 +38,7 @@ use std::path::Path;
 
 use rusqlite::{
 	Connection,
+	OpenFlags,
 	Error,
 	Result as SqlResult
 };
@@ -58,6 +59,11 @@ use crate::value::{
 	ValueDef
 };
 
+/// The default flags minus SQLITE_OPEN_CREATE
+const DB_OPEN_FLAGS: OpenFlags = OpenFlags::SQLITE_OPEN_READ_WRITE
+	.union(OpenFlags::SQLITE_OPEN_URI)
+	.union(OpenFlags::SQLITE_OPEN_NO_MUTEX);
+
 
 pub struct Database<S: Schema> {
 	connection: Connection,
@@ -77,8 +83,10 @@ impl<S: Schema> Database<S> {
 		connection.pragma_update(None, "foreign_keys", "on")?;
 		Ok(Self { connection, schema: PhantomData })
 	}
+	/// Open the database at the path
 	pub fn open(path: &Path) -> SqlResult<Self> {
-		Connection::open(path).and_then(Self::from_connection)
+		Connection::open_with_flags(path, DB_OPEN_FLAGS)
+			.and_then(Self::from_connection)
 	}
 	pub fn create_in_memory() -> SqlResult<Self> {
 		let new = Connection::open_in_memory().and_then(Self::from_connection)?;
