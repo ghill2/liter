@@ -1,6 +1,6 @@
 [package]
 name = "liter"
-version = "0.0.2"
+version = "0.0.3"
 edition = "2021"
 authors = ["xaos <xaos@xaos.tech>"]
 license = "GPL-3.0-or-later"
@@ -11,6 +11,6 @@ keywords = ["sqlite", "storage", "schema"]
 categories = ["database"]
 
 [dependencies]
-liter_derive = "0.0.2"
+liter_derive = "0.0.3"
 rusqlite = "0.29"
 construe = "0.0.3"
