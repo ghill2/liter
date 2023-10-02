@@ -4,6 +4,7 @@ version = "0.0.2"
 edition = "2021"
 authors = ["xaos <xaos@xaos.tech>"]
 license = "GPL-3.0-or-later"
+repository = "https://git.sr.ht/~xaos/liter"
 description = "WIP"
 documentation = "https://docs.rs/liter"
 keywords = ["sqlite", "storage", "schema"]
