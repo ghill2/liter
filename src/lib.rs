@@ -187,7 +187,6 @@ use crate::meta::tuple::CloneFromRef;
 use crate::table::HasSingleKey;
 use crate::value::{
 	ForeignKey,
-	FkConflictAction,
 	ValueDef
 };
 
@@ -391,12 +390,7 @@ impl<T: Table + HasKey> Value for Ref<T> {
 	const DEFINITION: ValueDef = ValueDef {
 		unique: false,
 		inner: T::KEY_VALUE,
-		reference: Some(ForeignKey {
-			table_name: T::NAME,
-			deferrable: true,
-			on_delete: FkConflictAction::Restrict,
-			on_update: FkConflictAction::Restrict
-		}),
+		reference: Some(ForeignKey::define_for::<T>()),
 		checks: &[],
 	};
 	type References = T;

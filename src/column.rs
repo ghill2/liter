@@ -45,14 +45,6 @@ pub enum Affinity {
 impl Affinity {
 	pub const fn as_str(self) -> &'static str {
 		match self {
-			Affinity::Integer => "INTEGER NOT NULL",
-			Affinity::Real => "REAL NOT NULL",
-			Affinity::Text => "TEXT NOT NULL",
-			Affinity::Blob => "BLOB NOT NULL",
-		}
-	}
-	pub const fn as_str_nullable(self) -> &'static str {
-		match self {
 			Affinity::Integer => "INTEGER",
 			Affinity::Real => "REAL",
 			Affinity::Text => "TEXT",
@@ -75,11 +67,9 @@ impl ColumnDef {
 	{
 		sc = name.join(sc, "_");
 		sc = sc.push_str(" ");
+		sc = sc.push_str(self.affinity.as_str());
 		if !self.nullable {
-			sc = sc.push_str(self.affinity.as_str());
-		}
-		else {
-			sc = sc.push_str(self.affinity.as_str_nullable());
+			sc = sc.push_str(" NOT NULL");
 		}
 		let mut checks = self.checks;
 		while let [Check::Sql(check), rest @ ..] = checks {

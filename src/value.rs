@@ -54,10 +54,10 @@ pub struct ForeignKey {
 }
 
 impl ForeignKey {
-	pub fn define_for<T: Table + HasKey>() -> Self {
+	pub const fn define_for<T: Table + HasKey>() -> Self {
 		Self {
 			table_name: T::NAME,
-			deferrable: false,
+			deferrable: true,
 			on_delete: FkConflictAction::Restrict,
 			on_update: FkConflictAction::Restrict
 		}
