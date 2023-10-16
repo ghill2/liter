@@ -1,5 +1,6 @@
 use rusqlite::{
 	Row,
+	types::ValueRef,
 	types::FromSql,
 	Result as SqlResult,
 };
@@ -28,6 +29,13 @@ impl<'row> Fetcher<'row> {
 		let thing = self.row.get(self.index)?;
 		self.index += 1; // fetch parameter index is 0-based
 		Ok(thing)
+	}
+	#[inline]
+	#[must_use = "advances the column index"]
+	pub fn borrow_column(&mut self) -> SqlResult<ValueRef> {
+		let value_ref = self.row.get_ref(self.index)?;
+		self.index += 1; // fetch parameter index is 0-based
+		Ok(value_ref)
 	}
 	pub fn fetch<T: Fetch>(&mut self) -> SqlResult<T> {
 		T::fetch(self)
