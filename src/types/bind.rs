@@ -23,12 +23,12 @@ impl<'stmt, 'conn> Binder<'stmt, 'conn> {
 		self.index += 1; // bind parameter index is 1-based
 		self.stmt.raw_bind_parameter(self.index, thing)
 	}
-	pub fn bind<T: Bind>(&mut self, thing: &T) -> SqlResult<()> {
+	pub fn bind<T: Bind + ?Sized>(&mut self, thing: &T) -> SqlResult<()> {
 		thing.bind(self)
 	}
 }
 
-impl<T: ToSql + ToSql2> Bind for T {
+impl<T: ToSql + ToSql2 + ?Sized> Bind for T {
 	fn bind(&self, binder: &mut Binder<'_, '_>) -> SqlResult<()> {
 		binder.bind_parameter(&self)?;
 		Ok(())
