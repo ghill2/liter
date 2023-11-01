@@ -8,3 +8,11 @@
 
 pub use rusqlite::Result as SqlResult;
 pub use construe::construe;
+
+pub fn invalid_variant(msg: String) -> rusqlite::Error {
+	rusqlite::Error::FromSqlConversionFailure(
+		1,
+		rusqlite::types::Type::Text,
+		msg.into()
+	)
+}

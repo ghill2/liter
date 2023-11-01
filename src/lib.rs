@@ -162,7 +162,8 @@ pub use value::Value;
 
 pub use liter_derive::{
 	database,
-	Table
+	Table,
+	Value
 };
 
 use std::marker::PhantomData;
