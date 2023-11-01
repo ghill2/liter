@@ -54,6 +54,10 @@ impl Affinity {
 }
 
 impl ColumnDef {
+	/// Override the `nullable` field as `true`
+	pub(crate) const fn nullable(&self) -> Self {
+		Self {nullable: true, ..*self}
+	}
 	/// Write out the [`Column`] SQL defintion
 	///
 	/// ```sql
@@ -132,11 +136,5 @@ impl Column for bool {
 	const CHECKS: &'static [Check] = &[
 		Check::Sql("BETWEEN 0 AND 1")
 	];
-}
-
-/* NULLABLE */
-impl<T: Column> Column for Option<T> {
-	const AFFINITY: Affinity = T::AFFINITY;
-	const NULLABLE: bool = true;
 }
 

@@ -5,6 +5,7 @@ use rusqlite::{
 };
 
 pub trait Bind {
+	const COLUMNS: usize;
 	fn bind(&self, binder: &mut Binder<'_, '_>) -> SqlResult<()>;
 }
 pub trait ToSql2 {}
@@ -26,17 +27,41 @@ impl<'stmt, 'conn> Binder<'stmt, 'conn> {
 	pub fn bind<T: Bind + ?Sized>(&mut self, thing: &T) -> SqlResult<()> {
 		thing.bind(self)
 	}
+	pub fn skip(&mut self, count: usize) {
+		self.index += count;
+	}
 }
 
 impl<T: ToSql + ToSql2 + ?Sized> Bind for T {
+	const COLUMNS: usize = 1;
 	fn bind(&self, binder: &mut Binder<'_, '_>) -> SqlResult<()> {
 		binder.bind_parameter(&self)?;
 		Ok(())
 	}
 }
 
+impl<T: Bind> Bind for Option<T> {
+	const COLUMNS: usize = T::COLUMNS;
+	fn bind(&self, binder: &mut Binder<'_, '_>) -> SqlResult<()> {
+		if let Some(slf) = self {
+			binder.bind(slf)?;
+		}
+		else {
+			// "Parameters that are not assigned values using sqlite3_bind() are treated as NULL."
+			// See https://sqlite.org/lang_expr.html#varparam
+			binder.skip(T::COLUMNS);
+		}
+		Ok(())
+	}
+}
+
 #[liter_derive::impl_tuple(2..=16)]
 impl Bind for Each!(T) where Every!(T => T: Bind): '_ {
+	const COLUMNS: usize = {
+		let mut columns = 0;
+		Each!(T => columns += T::COLUMNS);
+		columns
+	};
 	fn bind(&self, binder: &mut Binder<'_, '_>) -> SqlResult<()> {
 		each!{ref thing => {binder.bind(thing)?;} };
 		Ok(())
@@ -73,7 +98,6 @@ impl ToSql2 for [u8] {}
 
 impl<T: ?Sized + ToSql> ToSql2 for &'_ T {}
 impl<const N: usize> ToSql2 for [u8; N] {}
-impl<T: ToSql> ToSql2 for Option<T> {}
 
 impl ToSql2 for rusqlite::types::Null {}
 impl ToSql2 for rusqlite::types::Value {}

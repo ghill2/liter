@@ -185,6 +185,7 @@ use rusqlite::types::{
 use crate::column::Affinity;
 use crate::meta::tuple::CloneFromRef;
 use crate::table::HasSingleKey;
+use crate::types::Fetcher;
 use crate::value::{
 	ForeignKey,
 	ValueDef
@@ -389,6 +390,7 @@ impl<T: HasKey<Key = K>, K: CloneFromRef<T::Marker>> Ref<T> {
 impl<T: Table + HasKey> Value for Ref<T> {
 	const DEFINITION: ValueDef = ValueDef {
 		unique: false,
+		nullable: false,
 		inner: T::KEY_VALUE,
 		reference: Some(ForeignKey::define_for::<T>()),
 		checks: &[],
@@ -397,16 +399,21 @@ impl<T: Table + HasKey> Value for Ref<T> {
 }
 
 impl<T: Table + HasKey> Fetch for Ref<T> {
-	fn fetch(fetcher: &mut crate::types::Fetcher<'_>) -> SqlResult<Self> {
+	fn fetch(fetcher: &mut Fetcher<'_>) -> SqlResult<Self> {
 		T::Key::fetch(fetcher).map(Self)
+	}
+	fn try_fetch(fetcher: &mut Fetcher<'_>) -> SqlResult<Option<Self>> {
+		T::Key::try_fetch(fetcher).map(|opt| opt.map(Self))
 	}
 }
 impl<T: Table + HasKey> Bind for Ref<T> {
+	const COLUMNS: usize = T::Key::COLUMNS;
 	fn bind(&self, binder: &mut Binder<'_, '_>) -> SqlResult<()> {
 		self.0.bind(binder)
 	}
 }
 impl<T: Table + HasKey> Bind for &Ref<T> {
+	const COLUMNS: usize = T::Key::COLUMNS;
 	fn bind(&self, binder: &mut Binder<'_, '_>) -> SqlResult<()> {
 		self.0.bind(binder)
 	}

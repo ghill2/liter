@@ -22,19 +22,24 @@ pub trait Value: Bind + Fetch {
 
 #[derive(Debug)]
 pub struct ValueDef {
+	/// `UNIQUE` constraint across *all* constituent [`Column`]s
 	pub unique: bool,
-	//pub nullable: bool,
-	pub inner: InnerValueDef,
+	/// Whether constituent [`Column`]s should be marked `NOT NULL`
+	///
+	/// Note that this constraint doesn't strictly match Rust semantics, because it applies to *each* column individually and not all of them together.
+	/// So, in terms of the constraint, for a [`Value`] `V` with three [`Column`]s `A`, `B`, and `C`, `Option<V>` is not analogous to `Option<(A, B, C)>`, but rather `(Option<A>, Option<B>, Option<C>)`.
+	pub nullable: bool,
+	pub inner: NestedValueDef,
 	pub reference: Option<ForeignKey>,
 	pub checks: &'static [Check]
 }
 
 #[derive(Debug)]
-pub enum InnerValueDef {
+pub enum NestedValueDef {
 	Column (ColumnDef),
 	//Columns (&'static [(&'static str, ColumnDef)]),
-	Value (&'static InnerValueDef),
-	Values (&'static [(&'static str, InnerValueDef)]),
+	Value (&'static ValueDef),
+	Values (&'static [(&'static str, ValueDef)]),
 }
 
 
@@ -140,30 +145,57 @@ impl<T: Column> Value for T {
 	//type Columns = Self;
 	const DEFINITION: ValueDef = ValueDef {
 		unique: false,
-		inner: InnerValueDef::Column(<Self as Column>::DEFINITION),
+		nullable: false,
+		inner: NestedValueDef::Column(<Self as Column>::DEFINITION),
 		reference: None,
 		checks: &[],
 	};
 }
 
+impl<T: Value> Value for Option<T> {
+	type References = T::References;
+	const DEFINITION: ValueDef = ValueDef {
+		nullable: true,
+		..T::DEFINITION
+	};
+}
+
 impl ValueDef {
-	pub const fn push_constraint_sql<const N: usize>(
+	pub(crate) const fn push_sql<const N: usize>(
 		&self,
 		name: &str,
+		sc: StrConstrue<N>)
+		-> StrConstrue<N>
+	{
+		self.inner.push_sql(self.nullable, &StrChain::start(name), sc)
+	}
+	pub(crate) const fn push_constraint_sql<const N: usize>(
+		&self,
+		chain: &StrChain<'_>,
 		mut sc: StrConstrue<N>)
 		-> StrConstrue<N>
 	{
 		if self.unique {
 			// TODO: if inner is single-column: append UNIQUE instead
 			sc = sc.push_str(",\n\tUNIQUE (");
-			sc = self.inner.push_column_names(&StrChain::start(name), sc);
+			sc = self.inner.push_column_names(chain, sc);
 			sc = sc.push_str(")");
 		}
 		if let Some(ref fk_ref) = self.reference {
 			sc = sc.push_str(",\n\tFOREIGN KEY (");
-			sc = self.inner.push_column_names(&StrChain::start(name), sc);
+			sc = self.inner.push_column_names(chain, sc);
 			sc = sc.push_str(")");
 			sc = fk_ref.push_sql(sc)
+		}
+		match self.inner {
+			NestedValueDef::Column(_) => {},
+			NestedValueDef::Value(v) => sc = v.push_constraint_sql(chain, sc),
+			NestedValueDef::Values(mut values) => {
+				while let [(name, def), rest @ ..] = values {
+					values = rest;
+					sc = def.push_constraint_sql(&chain.with(name), sc);
+				}
+			}
 		}
 		/*
 		TODO: CHECK CONSTRAINTS
@@ -172,7 +204,7 @@ impl ValueDef {
 	}
 }
 
-impl InnerValueDef {
+impl NestedValueDef {
 	pub(crate) const fn push_column_names<const N: usize>(
 		&self,
 		chain: &StrChain<'_>,
@@ -181,14 +213,15 @@ impl InnerValueDef {
 	{
 		match self {
 			Self::Column(_def) => chain.join(sc, "_"),
-			Self::Value(def) => def.push_column_names(chain, sc),
+			Self::Value(def) => def.inner.push_column_names(chain, sc),
 			// this matches only on the last definition
 			Self::Values([(name, def)]) =>
-				def.push_column_names(&chain.with(name), sc),
+				def.inner.push_column_names(&chain.with(name), sc),
 			// this would also match on the last definition, so it comes after
-			Self::Values([(first_name, first_def), rest @ ..]) => {
+			Self::Values([first, rest @ ..]) => {
+				let (name, def) = first;
 				// this descends
-				sc = first_def.push_column_names(&chain.with(first_name), sc);
+				sc = def.inner.push_column_names(&chain.with(name), sc);
 				sc = sc.push_str(", ");
 				// this doesn't actually descend (yet), it's just unpacking
 				Self::Values(rest).push_column_names(chain, sc)
@@ -198,22 +231,30 @@ impl InnerValueDef {
 	}
 	pub(crate) const fn push_sql<const N: usize>(
 		&self,
+		nullable: bool,
 		chain: &StrChain<'_>,
 		mut sc: StrConstrue<N>)
 		-> StrConstrue<N>
 	{
 		match self {
+			Self::Column(def) if nullable => def.nullable().push_sql(chain, sc),
 			Self::Column(def) => def.push_sql(chain, sc),
-			Self::Value(def) => def.push_sql(chain, sc),
+			Self::Value(def) => def.inner
+				.push_sql(nullable | def.nullable, chain, sc),
 			// this matches only on the last definition
-			Self::Values([(name, def)]) => def.push_sql(&chain.with(name), sc),
+			Self::Values([(name, def)]) => def.inner.
+				push_sql(nullable | def.nullable, &chain.with(name), sc),
 			// this would also match on the last definition, so it comes after
 			Self::Values([(first_name, first_def), rest @ ..]) => {
 				// this descends
-				sc = first_def.push_sql(&chain.with(first_name), sc);
+				sc = first_def.inner.push_sql(
+					nullable | first_def.nullable,
+					&chain.with(first_name),
+					sc
+				);
 				sc = sc.push_str(",\n\t");
 				// this doesn't actually descend (yet), it's just unpacking
-				Self::Values(rest).push_sql(chain, sc)
+				Self::Values(rest).push_sql(nullable, chain, sc)
 			},
 			Self::Values([]) => panic!("empty Values([])")
 		}
@@ -227,11 +268,11 @@ impl InnerValueDef {
 			//Self::Columns(_) => todo!(),
 			// Single-key Ref
 			// recurse with name
-			Self::Value(def) => def.count_columns(),
+			Self::Value(def) => def.inner.count_columns(),
 			// Composite-Key Ref
 			// recurse with name + subname
 			Self::Values([(_, first), rest @ ..]) =>
-				first.count_columns() + Self::Values(rest).count_columns(),
+				first.inner.count_columns() + Self::Values(rest).count_columns(),
 			Self::Values([]) => 0
 		}
 	}

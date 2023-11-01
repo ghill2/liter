@@ -12,13 +12,16 @@ use liter::{
 	Id,
 	Ref,
 	Column,
+	Entry,
+	Bind,
+	Fetch,
 	Value,
 	types::impl_from_to_sql_2,
 	database,
 };
 use liter::value::{
 	ValueDef,
-	InnerValueDef,
+	NestedValueDef,
 };
 
 
@@ -29,7 +32,8 @@ fn unique_column() -> rusqlite::Result<()> {
 	impl Value for UniqueNumber {
 		const DEFINITION: ValueDef = ValueDef {
 			unique: true,
-			inner: InnerValueDef::Column(<u8 as Column>::DEFINITION),
+			nullable: false,
+			inner: NestedValueDef::Column(<u8 as Column>::DEFINITION),
 			reference: None,
 			checks: &[]
 		};
@@ -49,11 +53,15 @@ fn unique_column() -> rusqlite::Result<()> {
 
 
 	#[database]
-	struct Db (Item);
+	struct Db (Item, OptNumber);
 
 	#[derive(Table, Clone, Debug, PartialEq, Eq)]
 	struct Item {
 		number: UniqueNumber
+	}
+	#[derive(Table, Clone, Debug, PartialEq, Eq)]
+	struct OptNumber {
+		number: Option<UniqueNumber>
 	}
 	assert!(
 		Item::CREATE_TABLE.contains("UNIQUE"),
@@ -64,11 +72,28 @@ fn unique_column() -> rusqlite::Result<()> {
 	assert!(db.get_all::<Item>()?.is_empty());
 	let item = Item {number: UniqueNumber(9)};
 	assert_eq!(db.insert(&item).unwrap(), 1);
+	let opt_item: Option<Item> = db.query_row(
+		Item::GET_ALL,
+		[],
+		Fetch::from_row
+	)?;
+	assert_eq!(opt_item.as_ref(), Some(&item));
 
-	let item_2 = item.clone();
-	db.insert(&item_2).expect_err(
+	db.insert(&item).expect_err(
 		"inserting the same number should violate unique constraint and fail"
 	);
+
+	assert!(db.get_all::<OptNumber>()?.is_empty());
+	let opt_item = OptNumber {number: Some(UniqueNumber(9))};
+	assert_eq!(db.insert(&opt_item).unwrap(), 1);
+
+	let opt_item_2 = opt_item.clone();
+	db.insert(&opt_item_2).expect_err(
+		"inserting the same number should violate unique constraint and fail"
+	);
+
+	let none_item = OptNumber {number: None};
+	assert_eq!(db.insert(&none_item).unwrap(), 1);
 
 	Ok(())
 }
@@ -100,6 +125,11 @@ fn foreign_key() -> rusqlite::Result<()> {
 		block: Ref<Block>,
 		timestamp: u64
 	}
+
+	assert_eq!(3, File::COLUMNS);
+	assert_eq!(3, Block::COLUMNS);
+	assert_eq!(3, Access::COLUMNS);
+	assert_eq!(9, <(File, Block, Access)>::COLUMNS);
 
 	let db = Db::create_in_memory()?;
 

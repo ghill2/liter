@@ -17,7 +17,7 @@ use crate::meta::tuple::{
 };
 use crate::value::{
 	ValueDef,
-	InnerValueDef,
+	NestedValueDef,
 	StrChain
 };
 
@@ -35,6 +35,7 @@ pub trait Table {
 
 pub type Values = &'static [(&'static str, ValueDef)];
 
+#[derive(Debug)]
 pub struct TableDef {
 	// TODO: "ON CONFLICT " clause
 	//on_conflict: ???,
@@ -62,7 +63,7 @@ pub trait HasKey {
 	const UPDATE: &'static str;
 	const DELETE: &'static str;
 
-	const KEY_VALUE: InnerValueDef;
+	const KEY_VALUE: NestedValueDef;
 	type Marker: Marker;
 	type Key: Fetch + Bind + Tuple<Self::Marker>;
 
@@ -94,12 +95,12 @@ impl TableDef {
 		};
 
 		// DEFINE COLUMNS
-		sc = first_def.inner.push_sql(&StrChain::start(first_name), sc);
+		sc = first_def.push_sql(first_name, sc);
 		let mut values = other_values;
 		while let [(name, def), rest @ ..] = values {
 			values = rest;
 			sc = sc.push_str(",\n\t");
-			sc = def.inner.push_sql(&StrChain::start(name), sc);
+			sc = def.push_sql(name, sc);
 		}
 
 		// DEFINE PRIMARY KEY CONSTRAINT
@@ -124,11 +125,11 @@ impl TableDef {
 		}
 
 		// DEFINE VALUE CONSTRAINTS AT TABLE LEVEL
-		sc = first_def.push_constraint_sql(first_name, sc);
+		sc = first_def.push_constraint_sql(&StrChain::start(first_name), sc);
 		let mut values = other_values;
 		while let [(name, def), rest @ ..] = values {
 			values = rest;
-			sc = def.push_constraint_sql(name, sc);
+			sc = def.push_constraint_sql(&StrChain::start(name), sc);
 		}
 
 		// ADD TABLE-LEVEL CHECKS
@@ -370,25 +371,28 @@ impl<const C: usize, const L: usize> Names<C, L> {
 	const fn traverse_value(
 		mut self,
 		chain: &StrChain<'_>,
-		def: &InnerValueDef)
+		def: &NestedValueDef)
 		-> Self
 	{
 		match def {
-			InnerValueDef::Column(_def) => {
+			NestedValueDef::Column(_def) => {
 				let start = self.bytes.len();
 				self.bytes = chain.join(self.bytes, "_");
 				let end = self.bytes.len();
 				self.names = self.names.push((start, end)).0;
 				self
 			},
-			InnerValueDef::Value(def) => self.traverse_value(chain, def),
-			InnerValueDef::Values([(first_name, first_def), rest @ ..]) => {
+			NestedValueDef::Value(def) => self.traverse_value(chain, &def.inner),
+			NestedValueDef::Values([(first_name, first_def), rest @ ..]) => {
 				// this descends
-				self = self.traverse_value(&chain.with(first_name), first_def);
+				self = self.traverse_value(
+					&chain.with(first_name),
+					&first_def.inner
+				);
 				// this doesn't actually descend (yet), it's just unpacking
-				self.traverse_value(chain, &InnerValueDef::Values(rest))
+				self.traverse_value(chain, &NestedValueDef::Values(rest))
 			},
-			InnerValueDef::Values([]) => self
+			NestedValueDef::Values([]) => self
 		}
 	}
 	pub const fn finish(self) -> NameArrays<C, L> {
