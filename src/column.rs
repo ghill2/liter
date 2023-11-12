@@ -27,14 +27,14 @@ pub trait Column: FromSql + ToSql + FromSql2 + ToSql2 {
 	};
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct ColumnDef {
 	pub affinity: Affinity,
 	pub nullable: bool,
 	pub checks: &'static [Check]
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Affinity {
 	Integer,
 	Real,

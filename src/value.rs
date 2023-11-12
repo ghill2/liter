@@ -20,7 +20,7 @@ pub trait Value: Bind + Fetch {
 	type References;
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct ValueDef {
 	/// `UNIQUE` constraint across *all* constituent [`Column`]s
 	pub unique: bool,
@@ -34,7 +34,7 @@ pub struct ValueDef {
 	pub checks: &'static [Check]
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum NestedValueDef {
 	Column (ColumnDef),
 	//Columns (&'static [(&'static str, ColumnDef)]),
@@ -43,14 +43,14 @@ pub enum NestedValueDef {
 }
 
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Check {
 	// SQL string that will be prepended with the name of the column
 	Sql(&'static str)
 }
 
 // Note: The Value does not know the Type that is being referenced
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct ForeignKey {
 	pub table_name: &'static str,
 	pub deferrable: bool,
@@ -69,7 +69,7 @@ impl ForeignKey {
 	}
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum FkConflictAction {
 	Cascade,
 	Restrict,
