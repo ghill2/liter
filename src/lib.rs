@@ -344,6 +344,28 @@ impl<S: Schema> Database<S> {
 		Binder::make(&mut stmt).bind(params)?;
 		stmt.raw_execute()
 	}
+	pub fn query_one<T, P>(&self, sql: &str, params: &P) -> SqlResult<T>
+		where T: Fetch, P: Bind
+	{
+		let mut stmt = self.prepare(sql)?;
+		Binder::make(&mut stmt).bind(params)?;
+		let mut rows = stmt.raw_query();
+		rows.next()?
+			.ok_or(Error::QueryReturnedNoRows)
+			.and_then(T::from_row)
+	}
+	pub fn query_all<T, P>(&self, sql: &str, params: &P) -> SqlResult<Vec<T>>
+		where T: Fetch, P: Bind
+	{
+		let mut stmt = self.prepare(sql)?;
+		Binder::make(&mut stmt).bind(params)?;
+		let mut items = Vec::new();
+		let mut rows = stmt.raw_query();
+		while let Some(row) = rows.next()? {
+			items.push(T::from_row(row)?);
+		}
+		Ok(items)
+	}
 }
 
 impl<S: Schema> std::ops::Deref for Database<S> {
