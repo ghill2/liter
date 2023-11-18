@@ -12,5 +12,5 @@ categories = ["database"]
 
 [dependencies]
 liter_derive = "0.0.3"
-rusqlite = "0.29"
+rusqlite = "0.30"
 construe = "0.0.3"
