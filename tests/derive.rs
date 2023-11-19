@@ -192,6 +192,11 @@ fn from_enum() -> SqlResult<()> {
 		fetch!(db, "SELECT 'Unit', NULL, NULL, NULL, NULL, 0, NULL"),
 		Err::<X, _>(rusqlite::Error::FromSqlConversionFailure(6, _, _))
 	));
+	// unfortunately the error from ValueRef::as_str loses the column index
+	assert!(matches!(
+		fetch!(db, "SELECT 'Enum', NULL, NULL, NULL, NULL, NULL, NULL"),
+		Err::<X, _>(rusqlite::Error::FromSqlConversionFailure(_, _, _))
+	));
 
 
 	let tuple_x = X::Tuple(f64::INFINITY, 123.456);
