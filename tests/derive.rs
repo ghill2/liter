@@ -162,34 +162,34 @@ fn from_enum() -> SqlResult<()> {
 	);
 	assert_eq!(
 		X::Struct { u8: 123, array: [0; 3] },
-		fetch!(db,"SELECT 'Struct', NULL, 123, x'000000', NULL, NULL, NULL")?
+		fetch!(db, "SELECT 'Struct', NULL, 123, x'000000', NULL, NULL, NULL")?
 	);
 	assert_eq!(
 		X::Tuple(3.3, 99.0),
-		fetch!(db,"SELECT 'Tuple', NULL, NULL, NULL, 3.3, 99, NULL")?
+		fetch!(db, "SELECT 'Tuple', NULL, NULL, NULL, 3.3, 99, NULL")?
 	);
 	assert_eq!(
 		X::Enum(Abc::C),
-		fetch!(db,"SELECT 'Enum', NULL, NULL, NULL, NULL, NULL, 'C'")?
+		fetch!(db, "SELECT 'Enum', NULL, NULL, NULL, NULL, NULL, 'C'")?
 	);
 	assert_eq!(
 		X::Unit,
-		fetch!(db,"SELECT 'Unit', NULL, NULL, NULL, NULL, NULL, NULL")?
+		fetch!(db, "SELECT 'Unit', NULL, NULL, NULL, NULL, NULL, NULL")?
 	);
 	assert_eq!(
 		None::<X>,
-		fetch!(db,"SELECT NULL, NULL, NULL, NULL, NULL, NULL, NULL")?
+		fetch!(db, "SELECT NULL, NULL, NULL, NULL, NULL, NULL, NULL")?
 	);
 	assert!(matches!(
-		fetch!(db,"SELECT 'Unit', NULL, NULL, x'000000', NULL, NULL, NULL"),
+		fetch!(db, "SELECT 'Unit', NULL, NULL, x'000000', NULL, NULL, NULL"),
 		Err::<X, _>(rusqlite::Error::FromSqlConversionFailure(4, _, _))
 	));
 	assert!(matches!(
-		fetch!(db,"SELECT 'Unit', NULL, NULL, NULL, 0, NULL, NULL"),
+		fetch!(db, "SELECT 'Unit', NULL, NULL, NULL, 0, NULL, NULL"),
 		Err::<X, _>(rusqlite::Error::FromSqlConversionFailure(5, _, _))
 	));
 	assert!(matches!(
-		fetch!(db,"SELECT 'Unit', NULL, NULL, NULL, NULL, 0, NULL"),
+		fetch!(db, "SELECT 'Unit', NULL, NULL, NULL, NULL, 0, NULL"),
 		Err::<X, _>(rusqlite::Error::FromSqlConversionFailure(6, _, _))
 	));
 
