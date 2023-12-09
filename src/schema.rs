@@ -1,3 +1,5 @@
+//! The [`Schema`] is a set of [`Table`]s and defines a [`Database`](crate::Database)
+
 use construe::StrConstrue;
 
 use crate::Table;
@@ -12,10 +14,13 @@ pub trait Schema {
 	type Tables: TableList;
 	/// Statically generated list of table definition structs
 	const DEFINITIONS: &'static [TableDef];
-
+	/// Statically generated schema definition SQL
 	const CREATE: &'static str;
 }
 
+/// Assemble [`Table`] definitions into schema definition (internal)
+///
+/// You won't need to call this function yourself, the proc-macros will generate code that uses this function to generate the full schema SQL at compile-time.
 pub const fn define<const N: usize>(mut tables: &[&str]) -> StrConstrue<N> {
 	let mut sc = StrConstrue::new();
 

@@ -33,6 +33,7 @@ pub trait Table {
 	type References;
 }
 
+/// `'static' array of name & [`ValueDef`] pairs
 pub type Values = &'static [(&'static str, ValueDef)];
 
 #[derive(Debug)]
@@ -57,14 +58,27 @@ pub trait Entry: Sized + Fetch + Bind {
 	const INSERT: &'static str;
 }
 
+/// [`Table`] that has a primary key, which may be composite
 pub trait HasKey {
+	/// `SELECT (...) WHERE (... = ?)`
+	///
+	/// Select an entry by its primary key.
+	/// Binds however many columns the key has.
 	const GET_BY_KEY: &'static str;
 	const UPSERT: &'static str;
+	/// `UPDATE (...) SET (... = ?) WHERE (... = ?)`
+	///
+	/// Update all the non-key values in the row `WHERE` the key matches.
 	const UPDATE: &'static str;
+	/// Delete a row by its primary key.
 	const DELETE: &'static str;
 
+	/// Definition of the key value (used by [`Ref`])
 	const KEY_VALUE: NestedValueDef;
+	/// Marker type used to disambiguate bounds on the key
 	type Marker: Marker;
+	/// Type of the key.
+	/// If the key is composite, this will be a tuple.
 	type Key: Fetch + Bind + Tuple<Self::Marker>;
 
 	fn get_key(&self) -> <Self::Key as Tuple<Self::Marker>>::Ref<'_>;
