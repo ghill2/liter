@@ -161,13 +161,22 @@ impl<T: Value> Value for Option<T> {
 }
 
 impl ValueDef {
+	/// Override the `unique` field as `true`
+	pub const fn unique(self) -> Self {
+		Self {unique: true, ..self}
+	}
 	pub(crate) const fn push_sql<const N: usize>(
 		&self,
 		name: &str,
-		sc: StrConstrue<N>)
+		mut sc: StrConstrue<N>)
 		-> StrConstrue<N>
 	{
-		self.inner.push_sql(self.nullable, &StrChain::start(name), sc)
+		sc = self.inner.push_sql(self.nullable, &StrChain::start(name), sc);
+		if self.unique && self.inner.count_columns() == 1 {
+			sc = sc.push_str(" UNIQUE");
+		}
+		sc
+
 	}
 	pub(crate) const fn push_constraint_sql<const N: usize>(
 		&self,
@@ -175,8 +184,8 @@ impl ValueDef {
 		mut sc: StrConstrue<N>)
 		-> StrConstrue<N>
 	{
-		if self.unique {
-			// TODO: if inner is single-column: append UNIQUE instead
+		// if inner is single-column: append UNIQUE to the column instead
+		if self.unique && self.inner.count_columns() != 1 {
 			sc = sc.push_str(",\n\tUNIQUE (");
 			sc = self.inner.push_column_names(chain, sc);
 			sc = sc.push_str(")");
