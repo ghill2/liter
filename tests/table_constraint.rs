@@ -1,6 +1,8 @@
 use liter::{
+	Entry,
 	Id,
 	Table,
+	Value,
 	database,
 };
 
@@ -200,6 +202,129 @@ fn check() -> rusqlite::Result<()> {
 		data: 3_000_000
 	};
 	db.insert(&item_3).expect_err("both CHECK constraints should be violated");
+
+	Ok(())
+}
+
+#[test]
+fn unique() -> rusqlite::Result<()> {
+	#[database]
+	struct Db (OnTable, OnField, MultiTable);
+
+	#[derive(Table, Clone, Debug, PartialEq, Eq)]
+	#[unique(number)]
+	struct OnTable {
+		number: u8
+	}
+	#[derive(Table, Clone, Debug, PartialEq, Eq)]
+	struct OnField {
+		#[unique]
+		number: Option<u8>
+	}
+
+	assert!(
+		OnTable::CREATE_TABLE.contains("UNIQUE"),
+		"definition must include UNIQUE constraint"
+	);
+	assert!(
+		OnField::CREATE_TABLE.contains("number INTEGER UNIQUE"),
+		"definition must include inline UNIQUE constraint"
+	);
+
+	// check that SQL is valid
+	let db = Db::create_in_memory()?;
+
+	assert!(db.get_all::<OnTable>()?.is_empty());
+	let item = OnTable {number: 9};
+	assert_eq!(db.insert(&item).unwrap(), 1);
+	let opt_item: Option<OnTable> = db.query_one(OnTable::GET_ALL)?;
+	assert_eq!(opt_item.as_ref(), Some(&item));
+
+	db.insert(&item).expect_err(
+		"inserting the same number should violate unique constraint and fail"
+	);
+
+	assert!(db.get_all::<OnField>()?.is_empty());
+	let opt_item = OnField {number: Some(9)};
+	assert_eq!(db.insert(&opt_item).unwrap(), 1);
+
+	let opt_item_2 = opt_item.clone();
+	db.insert(&opt_item_2).expect_err(
+		"inserting the same number should violate unique constraint and fail"
+	);
+
+	let none_item = OnField {number: None};
+	assert_eq!(db.insert(&none_item).unwrap(), 1);
+
+
+	#[derive(Value, Clone, Debug, PartialEq, Eq)]
+	struct Multi {
+		a: u8,
+		b: String
+	}
+
+	#[derive(Table, Clone, Debug, PartialEq, Eq)]
+	#[unique] // over all values
+	#[unique(table)] // multi-column via table
+	#[unique(field, table)] // over 2 multi-column values
+	struct MultiTable {
+		#[unique] // multi-column via field
+		field: Multi,
+		table: Multi,
+		x: u8
+	}
+
+	let uniques = [
+		"UNIQUE (field_a, field_b)",
+		"UNIQUE (table_a, table_b)",
+		"UNIQUE (field_a, field_b, table_a, table_b)",
+		"UNIQUE (field_a, field_b, table_a, table_b, x)"
+	];
+	for unique in uniques {
+		assert!(
+			MultiTable::CREATE_TABLE.contains(unique),
+			"definition does not include {unique}:\n{}",
+			MultiTable::CREATE_TABLE
+		);
+	}
+
+	assert!(db.get_all::<MultiTable>()?.is_empty());
+	let mt = MultiTable {
+		field: Multi { a: 1, b: String::from("abc123") },
+		table: Multi { a: 2, b: String::from("def456") },
+		x: 123
+	};
+	assert_eq!(db.insert(&mt).unwrap(), 1);
+	db.insert(&mt).expect_err(
+		"inserting the same thing should violate unique constraint and fail"
+	);
+	let different_x = MultiTable {
+		x: 124, ..mt
+	};
+	db.insert(&different_x).expect_err(
+		"should violate the unique(field, table) constraint and fail"
+	);
+	let different_table = MultiTable {
+		table: Multi { a: 99, b: String::from("def456") },
+		..different_x
+	};
+	db.insert(&different_table).expect_err(
+		"should violate the unique(field) constraint and fail"
+	);
+	let new_field_a = MultiTable {
+		field: Multi { a: 123, b: String::from("abc123") },
+		table: Multi { a: 2, b: String::from("def456") },
+		x: 123
+	};
+	db.insert(&new_field_a).expect_err(
+		"should violate the unique(table) constraint and fail"
+	);
+	let new_table_b_also = MultiTable {
+		table: Multi { a: 2, b: String::from("NEW def456") },
+		..new_field_a
+	};
+	// now, field AND table are different
+	assert_eq!(db.insert(&new_table_b_also).unwrap(), 1);
 
 	Ok(())
 }
