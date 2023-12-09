@@ -33,10 +33,13 @@
 //! Note that it's not an error to define the structs `A` and `B` by themselves, since they don't know what [`Schema`](crate::Schema)s they will be a part of, `#[derive(Table)]` on `A` and `B` compiles just fine.
 //! Only when we try to define an invalid database does the issue arise.
 
+/// Strip `()`s from nested tuple types
 pub mod filter;
 pub use filter::Filtered;
+/// A trait to specify a type that is either a plain `T` or a tuple `(A, B, …)` with many caveats
 pub mod tuple;
 pub use tuple::Tuple;
+/// [`Schema`](crate::Schema) validation
 pub mod validate;
 pub use validate::{
 	IsValidFor,

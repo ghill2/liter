@@ -1,3 +1,5 @@
+//! Traits and helpers to [`Bind`] to statements and [`Fetch`] from rows
+
 mod bind;
 mod fetch;
 
