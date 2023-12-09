@@ -197,7 +197,7 @@ const DB_OPEN_FLAGS: OpenFlags = OpenFlags::SQLITE_OPEN_READ_WRITE
 	.union(OpenFlags::SQLITE_OPEN_URI)
 	.union(OpenFlags::SQLITE_OPEN_NO_MUTEX);
 
-
+#[derive(Debug)]
 pub struct Database<S: Schema> {
 	connection: Connection,
 	schema: PhantomData<S>
