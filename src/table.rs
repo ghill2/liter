@@ -45,12 +45,15 @@ pub struct TableDef {
 	pub values: Values,
 	pub key_values: Values,
 	pub other_values: Values,
-	pub checks: &'static [Check],
+	pub constraints: &'static [Constraint],
 }
 
 #[derive(Debug)]
-pub struct Check {
-	pub sql: &'static str
+pub enum Constraint {
+	/// SQL that will be put into a `CHECK (…)` constraint unmodified
+	SqlCheck(&'static str),
+	/// `UNIQUE` constraint over all the [`Values`]' columns
+	Unique(Values)
 }
 
 pub trait Entry: Sized + Fetch + Bind {
@@ -147,15 +150,41 @@ impl TableDef {
 		}
 
 		// ADD TABLE-LEVEL CHECKS
-		let mut checks = self.checks;
-		while let [check, rest @ ..] = checks {
-			checks = rest;
-			sc = sc.push_str(",\n\tCHECK (")
-				.push_str(check.sql)
-				.push_str(")");
+		let mut constraints = self.constraints;
+		while let [constraint, rest @ ..] = constraints {
+			constraints = rest;
+			sc = sc.push_str(",\n\t");
+			sc = constraint.push_sql(sc);
 		}
 
 		sc.push_str("\n) STRICT;")
+	}
+}
+
+impl Constraint {
+	const fn push_sql<const N: usize>(&self, mut sc: StrConstrue<N>)
+		-> StrConstrue<N>
+	{
+		match *self {
+			Self::SqlCheck(sql) => sc.push_str("CHECK (")
+				.push_str(sql)
+				.push_str(")"),
+			Self::Unique(mut values) => {
+				sc = sc.push_str("UNIQUE (");
+				while let [(name, value), rest @ ..] = values {
+					values = rest;
+					sc = value.inner.push_column_names(
+						&StrChain::start(name),
+						sc
+					);
+					if !rest.is_empty() {
+						sc = sc.push_str(", ");
+					}
+				}
+
+				sc.push_str(")")
+			}
+		}
 	}
 }
 
