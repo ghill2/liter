@@ -173,6 +173,14 @@ fn from_enum() -> SqlResult<()> {
 		fetch!(db, "SELECT 'Enum', NULL, NULL, NULL, NULL, NULL, 'C'")?
 	);
 	assert_eq!(
+		(Some(0), X::Unit),
+		fetch!(db, "SELECT 0, 'Unit', NULL, NULL, NULL, NULL, NULL, NULL")?
+	);
+	assert_eq!(
+		(Some(0), X::Enum(Abc::C)),
+		fetch!(db, "SELECT 0, 'Enum', NULL, NULL, NULL, NULL, NULL, 'C'")?
+	);
+	assert_eq!(
 		X::Unit,
 		fetch!(db, "SELECT 'Unit', NULL, NULL, NULL, NULL, NULL, NULL")?
 	);
