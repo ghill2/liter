@@ -64,6 +64,7 @@ impl<'row> Fetcher<'row> {
 		T::try_fetch(self)
 	}
 	pub fn fetch_none<T: Fetch>(&mut self) -> SqlResult<()> {
+		self.reset_all_nulls();
 		// we can't just check whether this is `None` because `try_fetch`ing a tuple `(Option<A>, Option<B>)` from `NULL`s gives us `Some(None, None)` (and it has to do that, to make `impl Value for Option<V: Value>` work)
 		let _ = T::try_fetch(self)?;
 		// instead, we check whether during this `try_fetch`, any *columns* were non-null, which is technically not the same ("Option Collapse")
