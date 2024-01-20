@@ -7,6 +7,32 @@ use rusqlite::{
 pub trait Bind {
 	const COLUMNS: usize;
 	fn bind(&self, binder: &mut Binder<'_, '_>) -> SqlResult<()>;
+
+	/// Bind to the [`Statement`]'s parameters **starting from the beginning**
+	///
+	/// This method will always bind to the parameters starting from the first parameter, even if those parameters were already bound to by previous call of `bind_to`!
+	/// So, unless you want to overwrite previously bound parameters, do not call this function multiple times on the same [`Statement`].
+	/// For instance, if you want to bind `"Hello"` and `123` to a statement, *don't* do:
+	/// ```
+	/// # use liter::Bind;
+	/// # fn x(stmt: &mut rusqlite::Statement) -> rusqlite::Result<()> {
+	/// "Hello".bind_to(stmt)?;
+	/// 123.bind_to(stmt)?; // Wrong: this overwrites the "Hello"
+	/// # Ok(())
+	/// # }
+	/// ```
+	/// Instead, call it once with a tuple like so:
+	/// ```
+	/// # use liter::Bind;
+	/// # fn x(stmt: &mut rusqlite::Statement) -> rusqlite::Result<()> {
+	/// ("Hello", 123).bind_to(stmt)?; // Correct: binds both "Hello" and 123
+	/// # Ok(())
+	/// # }
+	/// ```
+	fn bind_to(&self, stmt: &mut Statement) -> SqlResult<()> {
+		let mut binder = Binder::make(stmt);
+		self.bind(&mut binder)
+	}
 }
 pub trait ToSql2 {}
 
