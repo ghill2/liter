@@ -1,6 +1,6 @@
 [package]
 name = "liter"
-version = "0.0.6"
+version = "0.0.7"
 edition = "2021"
 authors = ["xaos <xaos@xaos.tech>"]
 license = "GPL-3.0-or-later"
