@@ -81,7 +81,7 @@ impl<T: Bind> Bind for Option<T> {
 	}
 }
 
-#[liter_derive::impl_tuple(2..=16)]
+#[liter_derive::impl_tuple(2..=40)]
 impl Bind for Each!(T) where Every!(T => T: Bind): '_ {
 	const COLUMNS: usize = {
 		let mut columns = 0;

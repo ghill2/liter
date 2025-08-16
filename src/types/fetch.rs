@@ -99,7 +99,7 @@ impl<T: Fetch> Fetch for Option<T> {
 	}
 }
 
-#[liter_derive::impl_tuple(2..=16)]
+#[liter_derive::impl_tuple(2..=40)]
 impl Fetch for Each!(T) where Every!(T => T: Fetch): '_ {
 	fn fetch(fetcher: &mut Fetcher<'_>) -> SqlResult<Self> {
 		let fetched = each!{ fetcher.fetch()? };
